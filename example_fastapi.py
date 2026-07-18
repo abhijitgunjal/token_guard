@@ -33,7 +33,7 @@ from token_guard.counters import (
 app = FastAPI(
     title="TokenGuard Multi-Provider Demo",
     description="LLM token tracking across OpenAI, Groq, OpenRouter, and Bedrock.",
-    version="0.3.0",
+    version="0.3.1",
 )
 
 # One guard per provider — each has its own counter and shared tracker
@@ -248,4 +248,4 @@ def list_providers() -> dict:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "version": "0.3.0"}
+    return {"status": "ok", "version": "0.3.1"}

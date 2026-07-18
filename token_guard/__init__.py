@@ -71,4 +71,4 @@ __all__ = [
     # "UsageTracker", "TokenCounter",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"

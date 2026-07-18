@@ -7,6 +7,12 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.3.1] - 2026-03-22
+
+### Added
+- Documented `get_usage()`, `all_users()`, and `reset_usage()` in README.
+- Renamed PyPI package name to `llm-token-guard` to avoid naming conflicts on PyPI.
+
 ## [0.3.0] - 2026-03-22
 
 ### Added
