@@ -89,7 +89,7 @@ extra-index-url = https://yourname:YOUR_GITHUB_TOKEN@pip.pkg.github.com/yourname
 Or set it inline per-install:
 
 ```bash
-pip install token-guard \
+pip install llm-token-guard \
   --index-url https://yourname:YOUR_GITHUB_TOKEN@pip.pkg.github.com/yourname/
 ```
 
@@ -97,7 +97,7 @@ Or use environment variables (recommended for CI/CD):
 
 ```bash
 export GITHUB_TOKEN=ghp_your_token_here
-pip install token-guard \
+pip install llm-token-guard \
   --index-url https://yourname:${GITHUB_TOKEN}@pip.pkg.github.com/yourname/
 ```
 
@@ -105,22 +105,22 @@ pip install token-guard \
 
 ```bash
 # Core only (OpenAI/tiktoken)
-pip install token-guard
+pip install llm-token-guard
 
 # With Redis storage support
-pip install "token-guard[redis]"
+pip install "llm-token-guard[redis]"
 
 # With Groq exact counting (HuggingFace tokenizers)
-pip install "token-guard[groq]"
+pip install "llm-token-guard[groq]"
 
 # With AWS Bedrock exact counting
-pip install "token-guard[bedrock]"
+pip install "llm-token-guard[bedrock]"
 
 # With FastAPI
-pip install "token-guard[fastapi]"
+pip install "llm-token-guard[fastapi]"
 
 # Everything
-pip install "token-guard[all]"
+pip install "llm-token-guard[all]"
 ```
 
 #### Using in requirements.txt
@@ -128,15 +128,15 @@ pip install "token-guard[all]"
 ```txt
 # requirements.txt
 --extra-index-url https://yourname:${GITHUB_TOKEN}@pip.pkg.github.com/yourname/
-token-guard==0.3.0
-token-guard[redis]==0.3.0
+llm-token-guard==0.3.0
+llm-token-guard[redis]==0.3.0
 ```
 
 #### Using in pyproject.toml
 
 ```toml
 [tool.poetry.dependencies]
-token-guard = { version = "0.3.0", source = "github-packages" }
+llm-token-guard = { version = "0.3.0", source = "github-packages" }
 
 [[tool.poetry.source]]
 name = "github-packages"
@@ -149,8 +149,8 @@ priority = "supplemental"
 ### Install from source
 
 ```bash
-git clone https://github.com/yourname/token-guard.git
-cd token-guard
+git clone https://github.com/yourname/token_guard.git
+cd token_guard
 
 pip install -e .                  # core
 pip install -e ".[redis]"         # + Redis
@@ -432,7 +432,7 @@ guard = TokenGuard(
 ### Redis (production)
 
 Persistent, distributed, safe for multi-worker deployments.
-Requires: `pip install "token-guard[redis]"` or `pip install redis`
+Requires: `pip install "llm-token-guard[redis]"` or `pip install redis`
 
 ```python
 from token_guard import TokenGuard, StorageFactory
@@ -731,8 +731,8 @@ guard = TokenGuard(
 ## 🔌 FastAPI Integration
 
 ```bash
-pip install "token-guard[fastapi]"
-cd token-guard
+pip install "llm-token-guard[fastapi]"
+cd token_guard
 uvicorn example_fastapi:app --reload
 ```
 

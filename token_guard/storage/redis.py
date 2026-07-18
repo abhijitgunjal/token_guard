@@ -6,7 +6,7 @@ Production-grade Redis storage backend.
 Requires:
     pip install redis
   or
-    pip install token-guard[redis]
+    pip install llm-token-guard[redis]
 
 WHY REDIS FOR PRODUCTION
 ------------------------
@@ -165,7 +165,7 @@ class RedisStorage(BaseStorage):
             raise ImportError(
                 "Install redis to use RedisStorage:\n"
                 "  pip install redis\n"
-                "  or: pip install token-guard[redis]"
+                "  or: pip install llm-token-guard[redis]"
             ) from exc
 
         pool = redis.ConnectionPool.from_url(
@@ -199,7 +199,7 @@ class RedisStorage(BaseStorage):
             raise ImportError(
                 "Install redis to use RedisStorage:\n"
                 "  pip install redis\n"
-                "  or: pip install token-guard[redis]"
+                "  or: pip install llm-token-guard[redis]"
             ) from exc
 
         pool = redis.ConnectionPool(
