@@ -17,6 +17,7 @@
   - [Install from GitHub Packages](#install-from-github-packages)
   - [Install from source](#install-from-source)
 - [Quick Start](#-quick-start)
+- [Inspecting & Resetting Usage](#-inspecting--resetting-usage)
 - [Token Counting — Providers](#-token-counting--providers)
   - [OpenAI](#openai-default)
   - [Groq](#groq)
@@ -205,6 +206,47 @@ print(result.total_tokens)                     # this request
 print(result.cumulative_usage.total_tokens)    # lifetime for alice
 print(result.limit_exceeded)                   # False
 print(f"{result.utilization:.1%}")             # % of limit used
+```
+
+---
+
+## 📊 Inspecting & Resetting Usage
+
+You can check or clear recorded token usage at any time without incrementing counts or performing a tracking check.
+
+### Check a single user's usage
+
+Retrieve the cumulative `input_tokens`, `output_tokens`, and `total_tokens` for a specific user:
+
+```python
+usage = guard.get_usage("alice")
+
+print(usage.input_tokens)   # e.g. 42
+print(usage.output_tokens)  # e.g. 15
+print(usage.total_tokens)   # e.g. 57 (input_tokens + output_tokens)
+```
+
+### Check all tracked users
+
+Retrieve recorded usage for all users as a dictionary of `{user_id: UserUsage}`:
+
+```python
+all_usage = guard.all_users()
+
+for user_id, usage in all_usage.items():
+    print(f"User: {user_id} | Total tokens: {usage.total_tokens}")
+```
+
+### Reset usage (Clear counts)
+
+Reset a user's cumulative counts back to 0 (useful for starting a new billing cycle or monthly limit reset):
+
+```python
+# Clear alice's token usage data
+guard.reset_usage("alice")
+
+# Verifying it reset
+assert guard.get_usage("alice").total_tokens == 0
 ```
 
 ---
