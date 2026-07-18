@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://github.com/yourname/token-guard/actions/workflows/publish.yml/badge.svg)](https://github.com/yourname/token-guard/actions)
+[![Tests](https://github.com/abhijitgunjal/token_guard/actions/workflows/publish.yml/badge.svg)](https://github.com/abhijitgunjal/token_guard/actions)
 
 ---
 
