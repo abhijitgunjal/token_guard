@@ -61,107 +61,62 @@
 | **Auto-detect provider** | `CounterFactory.auto("model-name")` picks the right backend |
 | **Config-driven** | Drive storage from env vars, config dict, or Redis URL |
 | **FastAPI ready** | Drop-in middleware pattern included |
-| **137 tests** | Full offline test suite — CI safe |
+| **173 tests** | Full offline test suite — CI safe |
 
 ---
 
 ## 📦 Installation
 
-### Install from GitHub Packages
-
-This package is published to **GitHub Packages** (GitHub's private/public package registry).
-
-#### Step 1 — Authenticate with GitHub Packages
-
-Create a GitHub Personal Access Token (PAT) with `read:packages` scope:
-
-1. Go to **GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic)**
-2. Click **Generate new token (classic)**
-3. Select scope: `read:packages`
-4. Copy the token
-
-#### Step 2 — Configure pip to use GitHub Packages
-
-Create or edit `~/.pip/pip.conf` (Linux/macOS) or `%APPDATA%\pip\pip.ini` (Windows):
-
-```ini
-[global]
-extra-index-url = https://yourname:YOUR_GITHUB_TOKEN@pip.pkg.github.com/yourname/
-```
-
-Or set it inline per-install:
+Install the library from PyPI:
 
 ```bash
-pip install llm-token-guard \
-  --index-url https://yourname:YOUR_GITHUB_TOKEN@pip.pkg.github.com/yourname/
-```
-
-Or use environment variables (recommended for CI/CD):
-
-```bash
-export GITHUB_TOKEN=ghp_your_token_here
-pip install llm-token-guard \
-  --index-url https://yourname:${GITHUB_TOKEN}@pip.pkg.github.com/yourname/
-```
-
-#### Step 3 — Install the package
-
-```bash
-# Core only (OpenAI/tiktoken)
+# Core package (OpenAI/tiktoken support, InMemoryStorage)
 pip install llm-token-guard
+```
 
-# With Redis storage support
+### Optional Extras
+
+Tailor the installation to your specific storage backends and LLM providers:
+
+```bash
+# For Redis storage (both synchronous and asynchronous)
 pip install "llm-token-guard[redis]"
 
-# With Groq exact counting (HuggingFace tokenizers)
+# For async SQLite storage (using aiosqlite)
+pip install "llm-token-guard[sqlite-async]"
+
+# For Groq exact counting (using HuggingFace tokenizers)
 pip install "llm-token-guard[groq]"
 
-# With AWS Bedrock exact counting
+# For AWS Bedrock exact counting (using boto3)
 pip install "llm-token-guard[bedrock]"
 
-# With FastAPI
+# For FastAPI example dependencies
 pip install "llm-token-guard[fastapi]"
 
-# Everything
+# Install everything
 pip install "llm-token-guard[all]"
 ```
 
-#### Using in requirements.txt
+### Using in requirements.txt
 
 ```txt
 # requirements.txt
---extra-index-url https://yourname:${GITHUB_TOKEN}@pip.pkg.github.com/yourname/
-llm-token-guard==0.3.0
-llm-token-guard[redis]==0.3.0
+llm-token-guard[redis]==0.4.0
 ```
 
-#### Using in pyproject.toml
+### Poetry / Pipenv
 
-```toml
-[tool.poetry.dependencies]
-llm-token-guard = { version = "0.3.0", source = "github-packages" }
-
-[[tool.poetry.source]]
-name = "github-packages"
-url = "https://pip.pkg.github.com/yourname/"
-priority = "supplemental"
+```bash
+poetry add llm-token-guard --extras "redis sqlite-async"
 ```
-
----
 
 ### Install from source
 
 ```bash
-git clone https://github.com/yourname/token_guard.git
+git clone https://github.com/abhijitgunjal/token_guard.git
 cd token_guard
-
-pip install -e .                  # core
-pip install -e ".[redis]"         # + Redis
-pip install -e ".[groq]"          # + Groq exact counting
-pip install -e ".[bedrock]"       # + AWS Bedrock exact counting
-pip install -e ".[fastapi]"       # + FastAPI
-pip install -e ".[dev]"           # + pytest, coverage
-pip install -e ".[all]"           # everything
+pip install -e ".[all]"
 ```
 
 ---
@@ -819,32 +774,32 @@ curl http://127.0.0.1:8000/health
 
 ```python
 from fastapi import FastAPI, HTTPException
-from token_guard import TokenGuard, StorageFactory
+from token_guard import AsyncTokenGuard, StorageFactory
 from token_guard.counters import CounterFactory
 
 app = FastAPI()
 
-# Configure once at startup
-guard = TokenGuard(
+# Configure once at startup with AsyncTokenGuard
+guard = AsyncTokenGuard(
     max_tokens=10_000,
     counter=CounterFactory.auto("gpt-4o"),
-    storage=StorageFactory.from_env(),   # driven by TOKEN_GUARD_STORAGE env var
+    storage=StorageFactory.from_env(),   # driven by TOKEN_GUARD_STORAGE env var (e.g. "redis_async")
 )
 
 @app.post("/chat")
 async def chat(user_id: str, prompt: str):
-    # ... call your LLM ...
-    response = call_llm(prompt)
+    # ... call your LLM asynchronously ...
+    response = await call_llm(prompt)
 
-    # After calling your LLM, pass the exact usage from the API response:
-    result = guard.track_usage(
+    # Track usage asynchronously without blocking the event loop:
+    result = await guard.track_usage(
         user_id=user_id,
         input_tokens=usage.prompt_tokens,       # exact — from API response
         output_tokens=usage.completion_tokens,
     )
 
-    # Or use text estimation (pre-flight, or when usage data is unavailable):
-    # result = guard.track(user_id=user_id, input_text=prompt, output_text=response)
+    # Or estimate asynchronously:
+    # result = await guard.track(user_id=user_id, input_text=prompt, output_text=response)
 
     if result.limit_exceeded:
         raise HTTPException(status_code=429, detail="Token limit exceeded")
@@ -886,9 +841,11 @@ token_guard/                          ← project root
 │       └── publish.yml               ← CI: test on push, publish to PyPI on tag
 │
 ├── token_guard/                      ← importable Python package
-│   ├── __init__.py                   ← public API surface
+│   ├── __init__.py                   ← public API surface (sync + async)
 │   ├── main.py                       ← TokenGuard class + TrackResult
-│   ├── alert.py                      ← AlertManager, BaseAlertHandler
+│   ├── async_main.py                 ← AsyncTokenGuard class
+│   ├── alert.py                      ← AlertManager, BaseAlertHandler (sync)
+│   ├── async_alert.py                ← AsyncAlertManager, AsyncBaseAlertHandler
 │   ├── limiter.py                    ← LimitManager
 │   ├── tracker.py                    ← backwards-compat shim
 │   │
@@ -901,17 +858,22 @@ token_guard/                          ← project root
 │   │   └── factory.py                ← CounterFactory.create() / .auto() / .register()
 │   │
 │   └── storage/                      ← pluggable storage backends
-│       ├── base.py                   ← BaseStorage (ABC — extend this)
+│       ├── base.py                   ← BaseStorage (ABC)
+│       ├── async_base.py             ← AsyncBaseStorage (ABC)
 │       ├── models.py                 ← UserUsage dataclass
 │       ├── memory.py                 ← InMemoryStorage (default, thread-safe)
+│       ├── async_memory.py           ← AsyncInMemoryStorage (asyncio-lock protected)
 │       ├── redis.py                  ← RedisStorage (connection pool, TTL, from_url)
+│       ├── async_redis.py            ← AsyncRedisStorage (redis.asyncio pipeline)
 │       ├── sqlite.py                 ← SQLiteStorage (WAL mode, UPSERT)
-│       └── factory.py                ← StorageFactory (create/from_url/from_env/from_config)
+│       ├── async_sqlite.py           ← AsyncSQLiteStorage (lazy connection, WAL)
+│       └── factory.py                ← StorageFactory (sync/async backends loader)
 │
 ├── tests/
 │   ├── test_token_guard.py           ← 101 unit tests (all offline-safe)
 │   ├── test_storage.py               ← 36 storage + factory tests
-│   └── test_groq_integration.py      ← 8 integration tests (needs GROQ_API_KEY)
+│   ├── test_async_token_guard.py     ← 18 async unit tests
+│   └── test_groq_integration.py      ← 9 integration tests (sync + async, needs GROQ_API_KEY)
 │
 ├── examples/
 │   └── multi_provider.py             ← runnable demo of all providers + storage
@@ -921,7 +883,7 @@ token_guard/                          ← project root
 ├── README.md
 ├── pyproject.toml                    ← package metadata + PyPI config
 ├── requirements.txt
-└── example_fastapi.py                ← multi-provider FastAPI example
+└── example_fastapi.py                ← multi-provider FastAPI example (async)
 ```
 
 ---
@@ -932,7 +894,7 @@ token_guard/                          ← project root
 pip install -e ".[dev]"
 
 # All offline tests (no API keys needed)
-pytest tests/test_token_guard.py tests/test_storage.py -v
+pytest tests/test_token_guard.py tests/test_storage.py tests/test_async_token_guard.py -v
 
 # Groq integration tests (requires GROQ_API_KEY)
 export GROQ_API_KEY=gsk_...
@@ -940,9 +902,6 @@ pytest tests/test_groq_integration.py -v -s
 
 # Full suite
 pytest tests/ -v
-
-# With coverage report
-pytest tests/test_token_guard.py tests/test_storage.py --cov=token_guard --cov-report=term-missing
 ```
 
 ---
