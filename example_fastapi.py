@@ -17,7 +17,7 @@ Provider is selected per-request via a query param:
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-from token_guard import TokenGuard, TrackResult
+from token_guard import AsyncTokenGuard, TrackResult
 from token_guard.counters import (
     CounterFactory,
     OpenAITokenCounter,
@@ -33,20 +33,20 @@ from token_guard.counters import (
 app = FastAPI(
     title="TokenGuard Multi-Provider Demo",
     description="LLM token tracking across OpenAI, Groq, OpenRouter, and Bedrock.",
-    version="0.3.1",
+    version="0.4.0",
 )
 
 # One guard per provider — each has its own counter and shared tracker
 # In production these would be singletons from config / dependency injection
-_GUARDS: dict[str, TokenGuard] = {}
+_GUARDS: dict[str, AsyncTokenGuard] = {}
 
 
-def _get_guard(provider: str, model: str, max_tokens: int = 5_000) -> TokenGuard:
-    """Return (or create) a TokenGuard for the given provider+model pair."""
+def _get_guard(provider: str, model: str, max_tokens: int = 5_000) -> AsyncTokenGuard:
+    """Return (or create) an AsyncTokenGuard for the given provider+model pair."""
     key = f"{provider}:{model}"
     if key not in _GUARDS:
         counter = CounterFactory.create(provider, model)
-        _GUARDS[key] = TokenGuard(max_tokens=max_tokens, counter=counter)
+        _GUARDS[key] = AsyncTokenGuard(max_tokens=max_tokens, counter=counter)
     return _GUARDS[key]
 
 
@@ -105,7 +105,7 @@ class UsageResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(
+async def chat(
     body: ChatRequest,
     provider: str = Query(default="openai", description="openai | groq | openrouter | bedrock"),
     max_tokens: int = Query(default=5_000, description="Token limit for this user"),
@@ -120,7 +120,7 @@ def chat(
 
     model = body.model or _DEFAULT_MODELS[provider]
     guard = _get_guard(provider, model, max_tokens)
-    result: TrackResult = guard.track(
+    result: TrackResult = await guard.track(
         user_id=body.user_id,
         input_text=body.prompt,
         output_text=body.response,
@@ -153,7 +153,7 @@ def chat(
 
 
 @app.post("/chat/exact", response_model=ChatResponse)
-def chat_exact(
+async def chat_exact(
     body: ChatExactRequest,
     provider: str = Query(default="openai", description="openai | groq | openrouter | bedrock"),
     max_tokens: int = Query(default=5_000, description="Token limit for this user"),
@@ -173,7 +173,7 @@ def chat_exact(
 
     model = _DEFAULT_MODELS.get(provider, "unknown")
     guard = _get_guard(provider, model, max_tokens)
-    result: TrackResult = guard.track_usage(
+    result: TrackResult = await guard.track_usage(
         user_id=body.user_id,
         input_tokens=body.input_tokens,
         output_tokens=body.output_tokens,
@@ -206,7 +206,7 @@ def chat_exact(
 
 
 @app.get("/usage/{user_id}", response_model=UsageResponse)
-def get_usage(
+async def get_usage(
     user_id: str,
     provider: str = Query(default="openai"),
     model: str | None = Query(default=None),
@@ -214,7 +214,7 @@ def get_usage(
     """Return cumulative token usage for a user on a given provider."""
     resolved_model = model or _DEFAULT_MODELS.get(provider, "gpt-4o")
     guard = _get_guard(provider, resolved_model)
-    usage = guard.get_usage(user_id)
+    usage = await guard.get_usage(user_id)
     return UsageResponse(
         user_id=user_id,
         input_tokens=usage.input_tokens,
@@ -224,7 +224,7 @@ def get_usage(
 
 
 @app.delete("/usage/{user_id}")
-def reset_usage(
+async def reset_usage(
     user_id: str,
     provider: str = Query(default="openai"),
     model: str | None = Query(default=None),
@@ -232,7 +232,7 @@ def reset_usage(
     """Reset the token usage counter for a user on a given provider."""
     resolved_model = model or _DEFAULT_MODELS.get(provider, "gpt-4o")
     guard = _get_guard(provider, resolved_model)
-    guard.reset_usage(user_id)
+    await guard.reset_usage(user_id)
     return {"message": f"Usage reset for user='{user_id}' provider='{provider}'"}
 
 
@@ -248,4 +248,4 @@ def list_providers() -> dict:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "version": "0.3.1"}
+    return {"status": "ok", "version": "0.4.0"}

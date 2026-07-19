@@ -284,3 +284,36 @@ class TestGroqUsageReport:
 
         # No assertion — this is a reporting test
         assert True
+
+
+from groq import AsyncGroq
+from token_guard import AsyncTokenGuard
+
+
+@pytest.fixture(scope="module")
+def async_groq_client():
+    return AsyncGroq(api_key=os.environ["GROQ_API_KEY"])
+
+
+@pytest.mark.asyncio
+class TestAsyncTokenGuardWithGroq:
+    async def test_track_usage_async(self, async_groq_client):
+        guard = AsyncTokenGuard(max_tokens=10_000)
+
+        completion = await async_groq_client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": "Hello, how are you?"}],
+            max_tokens=50,
+        )
+        usage = completion.usage
+
+        result = await guard.track_usage(
+            user_id="async_alice",
+            input_tokens=usage.prompt_tokens,
+            output_tokens=usage.completion_tokens,
+        )
+
+        assert result.user_id == "async_alice"
+        assert result.input_tokens == usage.prompt_tokens
+        assert result.output_tokens == usage.completion_tokens
+        assert result.cumulative_usage.total_tokens == usage.prompt_tokens + usage.completion_tokens

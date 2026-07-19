@@ -1,4 +1,6 @@
-# 🛡️ token_guard
+<p align="center">
+  <img src="assets/banner.png" alt="token_guard — LLM token tracking, limits & alerts" width="900" />
+</p>
 
 > Track LLM token usage per user, enforce limits, and fire alerts —
 > across **OpenAI, Groq, OpenRouter, AWS Bedrock**, and any custom provider.
@@ -945,6 +947,53 @@ pytest tests/test_token_guard.py tests/test_storage.py --cov=token_guard --cov-r
 
 ---
 
+## 🔄 Async Support
+
+`token_guard` provides native async support via `AsyncTokenGuard` and corresponding async storage backends. This is perfect for async web frameworks like **FastAPI**, **Sanic**, or **Tornado** to avoid blocking the event loop.
+
+### Basic Usage
+
+Use `AsyncTokenGuard` and `await` the tracking calls:
+
+```python
+from token_guard import AsyncTokenGuard
+
+guard = AsyncTokenGuard(max_tokens=10_000)
+
+async def handle_request():
+    result = await guard.track_usage("alice", input_tokens=42, output_tokens=18)
+    if result.limit_exceeded:
+        print("User exceeded budget!")
+```
+
+### Async Storage Backends
+
+Make sure to pass an async storage backend when instantiating `AsyncTokenGuard`.
+
+```python
+from token_guard import AsyncTokenGuard
+from token_guard.storage import AsyncInMemoryStorage, AsyncRedisStorage, AsyncSQLiteStorage
+
+# 1. In-memory (default)
+guard = AsyncTokenGuard(max_tokens=10_000, storage=AsyncInMemoryStorage())
+
+# 2. Redis (requires: pip install redis)
+guard = AsyncTokenGuard(
+    max_tokens=10_000,
+    storage=AsyncRedisStorage(host="localhost", port=6379, ttl=86400)
+)
+
+# 3. SQLite (requires: pip install aiosqlite)
+guard = AsyncTokenGuard(
+    max_tokens=10_000,
+    storage=AsyncSQLiteStorage(path="token_usage.db")
+)
+```
+
+Sync alert handlers work out of the box with `AsyncTokenGuard` (they are safely run in a separate thread executor via `asyncio.to_thread` to prevent blocking the event loop).
+
+---
+
 ## 🗺️ Roadmap
 
 - [x] Multi-provider token counting — OpenAI, Groq, OpenRouter, Bedrock ✅
@@ -954,7 +1003,7 @@ pytest tests/test_token_guard.py tests/test_storage.py --cov=token_guard --cov-r
 - [x] Redis connection pooling + TTL + `from_url()` + `ping()` ✅
 - [x] GitHub Actions CI/CD — auto-publish on version tag ✅
 - [x] **Exact token tracking** — `track_usage()` with API-reported counts ✅
-- [ ] **Async support** — `async def track(...)` for async frameworks
+- [x] **Async support** — `async def track(...)` for async frameworks ✅
 - [ ] **Sliding window limits** — hourly / daily token budgets per user
 - [ ] **Budget warnings** — alert at configurable % (e.g. 80%) before hard limit
 - [ ] **Per-model cost tracking** — estimate USD cost alongside token counts

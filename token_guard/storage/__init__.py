@@ -32,6 +32,11 @@ from token_guard.storage.redis import RedisStorage
 from token_guard.storage.sqlite import SQLiteStorage
 from token_guard.storage.factory import StorageFactory
 
+from token_guard.storage.async_base import AsyncBaseStorage
+from token_guard.storage.async_memory import AsyncInMemoryStorage
+from token_guard.storage.async_redis import AsyncRedisStorage
+from token_guard.storage.async_sqlite import AsyncSQLiteStorage
+
 __all__ = [
     "UserUsage",
     "BaseStorage",
@@ -39,4 +44,8 @@ __all__ = [
     "RedisStorage",
     "SQLiteStorage",
     "StorageFactory",
+    "AsyncBaseStorage",
+    "AsyncInMemoryStorage",
+    "AsyncRedisStorage",
+    "AsyncSQLiteStorage",
 ]

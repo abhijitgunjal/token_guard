@@ -40,10 +40,11 @@ from __future__ import annotations
 import os
 from typing import Any, Callable
 from token_guard.storage.base import BaseStorage
+from token_guard.storage.async_base import AsyncBaseStorage
 
 
-# Registry: name → callable(**kwargs) -> BaseStorage
-_REGISTRY: dict[str, Callable[..., BaseStorage]] = {}
+# Registry: name → callable(**kwargs) -> BaseStorage | AsyncBaseStorage
+_REGISTRY: dict[str, Callable[..., BaseStorage | AsyncBaseStorage]] = {}
 
 
 def _register_defaults() -> None:
@@ -51,11 +52,22 @@ def _register_defaults() -> None:
     from token_guard.storage.redis import RedisStorage
     from token_guard.storage.sqlite import SQLiteStorage
 
+    from token_guard.storage.async_memory import AsyncInMemoryStorage
+    from token_guard.storage.async_redis import AsyncRedisStorage
+    from token_guard.storage.async_sqlite import AsyncSQLiteStorage
+
     _REGISTRY.update({
-        "memory":   lambda **kw: InMemoryStorage(),
-        "inmemory": lambda **kw: InMemoryStorage(),   # alias
-        "redis":    lambda **kw: RedisStorage(**kw),
-        "sqlite":   lambda **kw: SQLiteStorage(**kw),
+        "memory":         lambda **kw: InMemoryStorage(),
+        "inmemory":       lambda **kw: InMemoryStorage(),   # alias
+        "redis":          lambda **kw: RedisStorage(**kw),
+        "sqlite":         lambda **kw: SQLiteStorage(**kw),
+        "memory_async":   lambda **kw: AsyncInMemoryStorage(),
+        "inmemory_async": lambda **kw: AsyncInMemoryStorage(),
+        "async_memory":   lambda **kw: AsyncInMemoryStorage(),
+        "redis_async":    lambda **kw: AsyncRedisStorage(**kw),
+        "async_redis":    lambda **kw: AsyncRedisStorage(**kw),
+        "sqlite_async":   lambda **kw: AsyncSQLiteStorage(**kw),
+        "async_sqlite":   lambda **kw: AsyncSQLiteStorage(**kw),
     })
 
 
@@ -67,49 +79,26 @@ class StorageFactory:
         - ``"memory"``  → InMemoryStorage  (default, zero deps)
         - ``"redis"``   → RedisStorage     (requires pip install redis)
         - ``"sqlite"``  → SQLiteStorage    (zero deps, file-based)
+        - ``"memory_async"`` → AsyncInMemoryStorage
+        - ``"redis_async"``  → AsyncRedisStorage
+        - ``"sqlite_async"`` → AsyncSQLiteStorage
         - any custom backend registered via ``StorageFactory.register()``
     """
 
     @classmethod
-    def create(cls, backend: str = "memory", **kwargs: Any) -> BaseStorage:
+    def create(cls, backend: str = "memory", **kwargs: Any) -> BaseStorage | AsyncBaseStorage:
         """
         Create a storage backend by name.
 
         Args:
-            backend:  Backend name — ``"memory"``, ``"redis"``, ``"sqlite"``.
+            backend:  Backend name — ``"memory"``, ``"redis"``, ``"sqlite"``, etc.
             **kwargs: Options passed directly to the backend constructor.
 
         Returns:
-            A configured BaseStorage instance.
+            A configured BaseStorage or AsyncBaseStorage instance.
 
         Raises:
             ValueError: If the backend name is not registered.
-
-        Examples::
-
-            # In-memory (default, no config needed)
-            store = StorageFactory.create("memory")
-
-            # Redis with all options
-            store = StorageFactory.create(
-                "redis",
-                host="redis.myapp.com",
-                port=6379,
-                password="secret",
-                ttl=86400,           # expire usage after 24 h
-                key_prefix="myapp:tokens",
-                max_connections=20,
-            )
-
-            # Redis from URL
-            store = StorageFactory.create(
-                "redis_url",
-                url="redis://:secret@redis.myapp.com:6379/0",
-                ttl=86400,
-            )
-
-            # SQLite (file-based, no extra deps)
-            store = StorageFactory.create("sqlite", path="usage.db")
         """
         if not _REGISTRY:
             _register_defaults()
@@ -125,25 +114,19 @@ class StorageFactory:
         return _REGISTRY[key](**kwargs)
 
     @classmethod
-    def from_url(cls, url: str, **kwargs: Any) -> BaseStorage:
+    def from_url(cls, url: str, **kwargs: Any) -> BaseStorage | AsyncBaseStorage:
         """
-        Create a RedisStorage directly from a Redis URL.
+        Create a RedisStorage or AsyncRedisStorage directly from a Redis URL.
 
         Args:
-            url:      Redis URL, e.g.
-                      ``"redis://localhost:6379/0"``
-                      ``"redis://:password@host:6379/0"``
-                      ``"rediss://host:6380/0"``  (TLS)
+            url:      Redis URL.
             **kwargs: Extra options (``key_prefix``, ``ttl``, etc.)
-
-        Example::
-
-            store = StorageFactory.from_url(
-                "redis://:secret@redis.myapp.com:6379/0",
-                key_prefix="myapp:tokens",
-                ttl=86400,
-            )
         """
+        async_mode = kwargs.pop("async_mode", False)
+        if async_mode:
+            from token_guard.storage.async_redis import AsyncRedisStorage
+            return AsyncRedisStorage.from_url(url, **kwargs)
+
         from token_guard.storage.redis import RedisStorage
         return RedisStorage.from_url(url, **kwargs)
 
@@ -153,43 +136,9 @@ class StorageFactory:
         env_var: str = "TOKEN_GUARD_STORAGE",
         redis_url_var: str = "REDIS_URL",
         **kwargs: Any,
-    ) -> BaseStorage:
+    ) -> BaseStorage | AsyncBaseStorage:
         """
         Create a storage backend driven by environment variables.
-
-        Reads ``TOKEN_GUARD_STORAGE`` (default: ``"memory"``) to pick
-        the backend.  If it is ``"redis"`` and ``REDIS_URL`` is set,
-        uses that URL automatically.
-
-        Args:
-            env_var:       Env var that holds the backend name.
-            redis_url_var: Env var that holds the Redis URL
-                           (used when backend is ``"redis"``).
-            **kwargs:      Extra options forwarded to the backend.
-
-        Environment variables::
-
-            TOKEN_GUARD_STORAGE=memory            → InMemoryStorage
-            TOKEN_GUARD_STORAGE=sqlite            → SQLiteStorage("token_guard.db")
-            TOKEN_GUARD_STORAGE=redis             → RedisStorage(host="localhost")
-            TOKEN_GUARD_STORAGE=redis
-            REDIS_URL=redis://:pw@host:6379/0     → RedisStorage.from_url(...)
-
-        Example .env file::
-
-            TOKEN_GUARD_STORAGE=redis
-            REDIS_URL=redis://:mypassword@redis.myapp.com:6379/0
-            TOKEN_GUARD_TTL=86400
-            TOKEN_GUARD_KEY_PREFIX=myapp:tokens
-
-        Example usage::
-
-            import os
-            from token_guard.storage import StorageFactory
-            from token_guard import TokenGuard
-
-            store = StorageFactory.from_env()
-            guard = TokenGuard(max_tokens=10_000, storage=store)
         """
         backend = os.getenv(env_var, "memory").lower().strip()
 
@@ -205,50 +154,27 @@ class StorageFactory:
                 kwargs["key_prefix"] = prefix
 
         # If backend is redis and REDIS_URL is set, use from_url path
-        if backend == "redis":
+        is_async = "async" in backend
+        if backend in ("redis", "redis_async", "async_redis"):
             redis_url = os.getenv(redis_url_var)
             if redis_url:
-                return cls.from_url(redis_url, **kwargs)
+                return cls.from_url(redis_url, async_mode=is_async, **kwargs)
 
         return cls.create(backend, **kwargs)
 
     @classmethod
-    def from_config(cls, config: dict[str, Any]) -> BaseStorage:
+    def from_config(cls, config: dict[str, Any]) -> BaseStorage | AsyncBaseStorage:
         """
         Create a storage backend from a config dictionary.
-
-        The dict must have a ``"backend"`` key.  All other keys are
-        forwarded to the backend constructor as keyword arguments.
-
-        Args:
-            config: Configuration dictionary.
-
-        Example::
-
-            # In your settings.py / config.yaml loader:
-            config = {
-                "backend": "redis",
-                "host": "redis.myapp.com",
-                "port": 6379,
-                "password": "secret",
-                "ttl": 86400,
-                "key_prefix": "myapp:tokens",
-            }
-            store = StorageFactory.from_config(config)
-
-            # Or for SQLite:
-            store = StorageFactory.from_config({
-                "backend": "sqlite",
-                "path": "/var/data/token_usage.db",
-            })
         """
         config = dict(config)   # don't mutate caller's dict
         backend = config.pop("backend", "memory")
 
         # Special case: redis with a URL key
-        if backend == "redis" and "url" in config:
+        is_async = "async" in backend
+        if backend in ("redis", "redis_async", "async_redis") and "url" in config:
             url = config.pop("url")
-            return cls.from_url(url, **config)
+            return cls.from_url(url, async_mode=is_async, **config)
 
         return cls.create(backend, **config)
 
@@ -256,43 +182,10 @@ class StorageFactory:
     def register(
         cls,
         name: str,
-        factory_fn: Callable[..., BaseStorage],
+        factory_fn: Callable[..., BaseStorage | AsyncBaseStorage],
     ) -> None:
         """
         Register a custom storage backend.
-
-        Args:
-            name:       Unique backend name (case-insensitive).
-            factory_fn: Callable ``(**kwargs) -> BaseStorage``.
-
-        Example::
-
-            from token_guard.storage import BaseStorage, StorageFactory
-            from token_guard.storage.models import UserUsage
-
-            class DynamoDBStorage(BaseStorage):
-                def __init__(self, table_name="token_guard", **kwargs):
-                    import boto3
-                    self._table = boto3.resource("dynamodb").Table(table_name)
-
-                def add_usage(self, user_id, input_tokens, output_tokens):
-                    self._table.update_item(...)
-
-                def get_usage(self, user_id) -> UserUsage:
-                    ...
-
-                def reset_usage(self, user_id):
-                    ...
-
-                def all_users(self) -> dict[str, UserUsage]:
-                    ...
-
-            StorageFactory.register(
-                "dynamodb",
-                lambda **kw: DynamoDBStorage(**kw),
-            )
-
-            store = StorageFactory.create("dynamodb", table_name="my_tokens")
         """
         if not _REGISTRY:
             _register_defaults()

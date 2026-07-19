@@ -8,6 +8,7 @@ Pluggable storage backends : Memory, Redis, SQLite, custom
 """
 
 from token_guard.main import TokenGuard, TrackResult
+from token_guard.async_main import AsyncTokenGuard
 
 # Storage
 from token_guard.storage import (
@@ -17,10 +18,15 @@ from token_guard.storage import (
     RedisStorage,
     SQLiteStorage,
     StorageFactory,
+    AsyncBaseStorage,
+    AsyncInMemoryStorage,
+    AsyncRedisStorage,
+    AsyncSQLiteStorage,
 )
 
 # Alert system
 from token_guard.alert import AlertManager, BaseAlertHandler, ConsoleAlertHandler
+from token_guard.async_alert import AsyncAlertManager, AsyncBaseAlertHandler
 
 # Limits
 from token_guard.limiter import LimitManager
@@ -61,9 +67,12 @@ def __getattr__(name: str):
 
 __all__ = [
     "TokenGuard", "TrackResult",
+    "AsyncTokenGuard",
     "UserUsage", "BaseStorage", "InMemoryStorage",
     "RedisStorage", "SQLiteStorage", "StorageFactory",
+    "AsyncBaseStorage", "AsyncInMemoryStorage", "AsyncRedisStorage", "AsyncSQLiteStorage",
     "AlertManager", "BaseAlertHandler", "ConsoleAlertHandler",
+    "AsyncAlertManager", "AsyncBaseAlertHandler",
     "LimitManager",
     "BaseTokenCounter", "OpenAITokenCounter", "GroqTokenCounter",
     "OpenRouterTokenCounter", "BedrockTokenCounter", "CounterFactory",
@@ -71,4 +80,4 @@ __all__ = [
     # "UsageTracker", "TokenCounter",
 ]
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
