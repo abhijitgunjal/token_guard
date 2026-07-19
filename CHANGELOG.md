@@ -7,6 +7,19 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.0] - 2026-07-19
+
+### Added
+- Native async support via `AsyncTokenGuard`.
+- Async storage backends: `AsyncInMemoryStorage`, `AsyncRedisStorage` (using `redis.asyncio`), and `AsyncSQLiteStorage` (using `aiosqlite`).
+- `AsyncAlertManager` that supports mixing sync and async alert handlers.
+- Updated `StorageFactory` to load and configure async backends.
+- Visual banner and assets to `README.md`.
+- Comprehensive unit test coverage for async flows.
+
+### Changed
+- Upgraded the FastAPI integration example (`example_fastapi.py`) to run fully asynchronous routes.
+
 ## [0.3.1] - 2026-03-22
 
 ### Added
