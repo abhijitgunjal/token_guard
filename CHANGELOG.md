@@ -7,6 +7,12 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.1] - 2026-07-19
+
+### Changed
+- Refactored `README.md` into a high-level guide with a Mermaid architecture diagram and feature comparison table.
+- Created `/docs` directory and moved advanced guides (`providers.md`, `storage.md`, `fastapi.md`, `async.md`, `custom-backends.md`) out of the main README.
+
 ## [0.4.0] - 2026-07-19
 
 ### Added
