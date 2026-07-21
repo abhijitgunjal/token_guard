@@ -142,7 +142,7 @@ graph TD
 | **Extensible Alerts** | Console, Slack, webhooks, or custom handlers |
 | **Auto-Detect Backend** | Auto-detect model tokens based on model name strings |
 | **FastAPI & Async Ready** | Full async entry points and async-native database integrations |
-| **Robust Test Suite** | 189 offline unit and integration tests |
+| **Robust Test Suite** | 219 offline unit and integration tests |
 
 ---
 
@@ -269,19 +269,33 @@ pytest tests/test_groq_integration.py -v -s
 <a id="roadmap"></a>
 ## 🗺️ Roadmap
 
-- [x] Multi-provider token counting — OpenAI, Groq, OpenRouter, Bedrock ✅
-- [x] Auto-detect provider — `CounterFactory.auto()` ✅
-- [x] Pluggable storage — Memory, Redis, SQLite ✅
-- [x] `StorageFactory` — `from_env()`, `from_url()`, `from_config()` ✅
-- [x] Redis connection pooling + TTL + `from_url()` + `ping()` ✅
-- [x] GitHub Actions CI/CD — auto-publish on version tag ✅
+### Completed Milestones
+- [x] **Multi-provider token counting** — OpenAI, Groq, OpenRouter, AWS Bedrock ✅
+- [x] **Auto-detect provider** — `CounterFactory.auto()` ✅
+- [x] **Pluggable storage** — Memory, Redis, SQLite ✅
+- [x] **StorageFactory** — `from_env()`, `from_url()`, `from_config()` ✅
+- [x] **Redis connection pooling** + TTL + `from_url()` + `ping()` ✅
+- [x] **GitHub Actions CI/CD** — auto-publish on version tag ✅
 - [x] **Exact token tracking** — `track_usage()` with API-reported counts ✅
-- [x] **Async support** — `async def track(...)` for async frameworks ✅
+- [x] **Async support** — `async def track(...)` for non-blocking execution ✅
 - [x] **Policy Engine (v0.5.0)** — Sliding Window, Token Bucket, Fixed Window, Leaky Bucket, Cost, Quota, Role policies ✅
-- [x] **PostgreSQL & DynamoDB Storage Drivers (v0.6.0)** — Built-in enterprise storage drivers ✅
-- [ ] **Budget warnings** — alert at configurable % (e.g. 80%) before hard limit
-- [ ] **Prometheus metrics** — expose `token_guard_tokens_total` counter
-- [ ] **Vertex AI / Cohere** — dedicated exact-count backends
+- [x] **PostgreSQL & DynamoDB Drivers (v0.6.0)** — Built-in enterprise storage drivers ✅
+- [x] **Hardening & Performance (v0.6.1)** — Deadlock fixes, thread safety, memory eviction, double query optimization, custom exceptions ✅
+
+### Upcoming Enterprise Roadmap
+
+#### Phase 1: Distributed Storage-Backed Policies
+- [ ] **Redis Lua & SQL Window Counters** — Execute rate-limiting counters directly in storage (Redis Lua scripts & Postgres SQL window queries) for cluster-wide rate limiting across pod workers.
+- [ ] **Budget Warning Thresholds** — Fire warning alerts at configurable percentages (e.g. 80%) before hard limit rejection.
+
+#### Phase 2: Enterprise Middleware & Webhook Handlers
+- [ ] **FastAPI & Starlette Middleware** — Native drop-in `TokenGuardMiddleware` with automatic API key extraction, policy enforcement, and standardized HTTP 429 JSON responses with `Retry-After` headers.
+- [ ] **Enterprise Alert Handlers** — Built-in `SlackAlertHandler`, `WebhookAlertHandler`, and `PagerDutyAlertHandler`.
+
+#### Phase 3: Observability & Provider Expansion
+- [ ] **Prometheus Metrics Exporter** — Expose `token_guard_tokens_total` counters and `token_guard_policy_rejections_total` histograms.
+- [ ] **OpenTelemetry Tracing** — Automatic trace spans across counter calculation and policy evaluation.
+- [ ] **Vertex AI & Cohere Counters** — Native exact token counting backends.
 
 ---
 
