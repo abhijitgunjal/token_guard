@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-token-guard"
-version = "0.6.0"
+version = "0.6.1"
 description = "Track LLM token usage, enforce policies & budget limits, and trigger alerts — across OpenAI, Groq, OpenRouter, AWS Bedrock, and custom providers."
 readme = "README.md"
 license = { file = "LICENSE" }

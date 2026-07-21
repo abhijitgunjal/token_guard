@@ -7,6 +7,17 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.6.1] - 2026-07-21
+
+### Fixed & Improved
+- **Resolved Event Loop Deadlock**: Fixed `PolicyEvaluator.evaluate()` deadlock when evaluating async policies inside synchronous contexts with a running event loop.
+- **PostgreSQL Thread-Safety & Security**: Added `threading.Lock()` connection serialization and strict `table_name` identifier validation (`_validate_table_name`) to eliminate SQL injection vectors.
+- **Policy Engine Memory Leak Eviction**: Added `max_users` capacity bounds and `_evict_expired()` key eviction routines to `FixedWindowPolicy` and `SlidingWindowPolicy`.
+- **Non-Blocking Async Token Counting**: Wrapped tokenizer execution and synchronous counter calls in `asyncio.to_thread()` inside `AsyncTokenGuard.track()`.
+- **Storage Latency Optimization**: Added `add_and_get_usage()` to `BaseStorage` and `AsyncBaseStorage`, reducing database network round-trips by 50%.
+- **Custom Exception Hierarchy**: Added `TokenGuardError`, `ConfigurationError`, `PolicyError`, `StorageError`, and `RateLimitExceededError`.
+- **Test Suite Expansion**: Added `tests/test_edge_cases.py`, increasing overall library test coverage to 86% across 219 test cases.
+
 ## [0.6.0] - 2026-07-21
 
 ### Added
