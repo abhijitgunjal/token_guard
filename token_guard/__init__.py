@@ -1,10 +1,11 @@
 """
 token_guard
 -----------
-Track LLM token usage, enforce limits, and trigger alerts.
+Track LLM token usage, enforce limits, trigger alerts, and evaluate policies.
 
 Pluggable counter backends : OpenAI, Groq, OpenRouter, AWS Bedrock, custom
 Pluggable storage backends : Memory, Redis, SQLite, custom
+Pluggable policy engine    : FixedWindow, SlidingWindow, TokenBucket, LeakyBucket, Cost, Quota, Role, custom
 """
 
 from token_guard.main import TokenGuard, TrackResult
@@ -41,9 +42,37 @@ from token_guard.counters import (
     CounterFactory,
 )
 
+# Policy Engine
+from token_guard.policies import (
+    PolicyContext,
+    PolicyResult,
+    BasePolicy,
+    AsyncBasePolicy,
+    PolicyFactory,
+    FixedWindowPolicy,
+    AsyncFixedWindowPolicy,
+    SlidingWindowPolicy,
+    AsyncSlidingWindowPolicy,
+    TokenBucketPolicy,
+    AsyncTokenBucketPolicy,
+    LeakyBucketPolicy,
+    AsyncLeakyBucketPolicy,
+    CostPolicy,
+    AsyncCostPolicy,
+    QuotaPolicy,
+    AsyncQuotaPolicy,
+    RolePolicy,
+    AsyncRolePolicy,
+)
+from token_guard.engine import (
+    PolicyEvaluator,
+    AsyncPolicyEvaluator,
+    PolicyPipeline,
+    AsyncPolicyPipeline,
+)
+
 # Legacy aliases — deprecated, will be removed in a future version
 import warnings as _warnings
-
 from token_guard.tracker import UsageTracker as _UsageTracker
 
 def __getattr__(name: str):
@@ -76,8 +105,16 @@ __all__ = [
     "LimitManager",
     "BaseTokenCounter", "OpenAITokenCounter", "GroqTokenCounter",
     "OpenRouterTokenCounter", "BedrockTokenCounter", "CounterFactory",
-    # Deprecated — access still works but emits DeprecationWarning:
-    # "UsageTracker", "TokenCounter",
+    "PolicyContext", "PolicyResult", "BasePolicy", "AsyncBasePolicy", "PolicyFactory",
+    "FixedWindowPolicy", "AsyncFixedWindowPolicy",
+    "SlidingWindowPolicy", "AsyncSlidingWindowPolicy",
+    "TokenBucketPolicy", "AsyncTokenBucketPolicy",
+    "LeakyBucketPolicy", "AsyncLeakyBucketPolicy",
+    "CostPolicy", "AsyncCostPolicy",
+    "QuotaPolicy", "AsyncQuotaPolicy",
+    "RolePolicy", "AsyncRolePolicy",
+    "PolicyEvaluator", "AsyncPolicyEvaluator",
+    "PolicyPipeline", "AsyncPolicyPipeline",
 ]
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"

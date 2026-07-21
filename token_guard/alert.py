@@ -38,13 +38,16 @@ class ConsoleAlertHandler(BaseAlertHandler):
 
     def send(self, user_id: str, usage: UserUsage, limit: int) -> None:
         message = (
-            f"[TokenGuard] ⚠️  LIMIT EXCEEDED — user='{user_id}' | "
+            f"[TokenGuard] [LIMIT EXCEEDED] user='{user_id}' | "
             f"total={usage.total_tokens} tokens | "
             f"(input={usage.input_tokens}, output={usage.output_tokens}) | "
             f"limit={limit}"
         )
         logger.warning(message)
-        print(message)
+        try:
+            print(message)
+        except UnicodeEncodeError:
+            print(message.encode("ascii", errors="replace").decode("ascii"))
 
 
 class AlertManager:

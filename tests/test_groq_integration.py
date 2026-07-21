@@ -23,13 +23,15 @@ What this tests:
 import os
 import pytest
 
-# Skip entire module if no API key is present
+# Skip if groq package is not installed or GROQ_API_KEY is missing
+groq_module = pytest.importorskip("groq", reason="groq package not installed — skipping Groq integration tests")
+Groq = groq_module.Groq
+
 pytestmark = pytest.mark.skipif(
     not os.getenv("GROQ_API_KEY"),
     reason="GROQ_API_KEY not set — skipping Groq integration tests",
 )
 
-from groq import Groq
 from token_guard import TokenGuard
 from token_guard.counters import GroqTokenCounter
 

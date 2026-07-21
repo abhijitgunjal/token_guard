@@ -202,15 +202,18 @@ class RedisStorage(BaseStorage):
                 "  or: pip install llm-token-guard[redis]"
             ) from exc
 
-        pool = redis.ConnectionPool(
-            host=host,
-            port=port,
-            db=db,
-            password=password,
-            ssl=ssl,
-            max_connections=max_connections,
-            decode_responses=True,
-        )
+        pool_kwargs = {
+            "host": host,
+            "port": port,
+            "db": db,
+            "password": password,
+            "max_connections": max_connections,
+            "decode_responses": True,
+        }
+        if ssl:
+            pool_kwargs["ssl"] = True
+
+        pool = redis.ConnectionPool(**pool_kwargs)
         return redis.Redis(connection_pool=pool)
 
     def _key(self, user_id: str) -> str:

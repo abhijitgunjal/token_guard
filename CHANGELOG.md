@@ -7,6 +7,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.5.0] - 2026-07-20
+
+### Added
+- **TokenGuard Policy Engine**: Extensible policy system supporting multiple rate-limiting and budget evaluation algorithms.
+- Concrete Policies: `SlidingWindowPolicy`, `TokenBucketPolicy`, `FixedWindowPolicy`, `LeakyBucketPolicy`, `CostPolicy`, `QuotaPolicy`, and `RolePolicy`.
+- `PolicyEvaluator` and `AsyncPolicyEvaluator` with short-circuit evaluation.
+- `PolicyFactory` for registry-driven policy resolution.
+- `PolicyContext` and `PolicyResult` models.
+- Policy integration in `TokenGuard` and `AsyncTokenGuard`.
+
 ## [0.4.1] - 2026-07-19
 
 ### Changed
