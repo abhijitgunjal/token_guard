@@ -2,32 +2,6 @@
 storage/base.py
 ---------------
 Abstract base class for all storage backends.
-
-Every backend (in-memory, Redis, SQLite, PostgreSQL, DynamoDB …) must
-subclass BaseStorage and implement the four methods below.
-
-Minimal custom backend example::
-
-    from token_guard.storage.base import BaseStorage
-    from token_guard.storage.models import UserUsage
-
-    class MyDBStorage(BaseStorage):
-        def add_usage(self, user_id, input_tokens, output_tokens):
-            db.execute(
-                "INSERT INTO usage ... ON CONFLICT DO UPDATE ...",
-                (user_id, input_tokens, output_tokens)
-            )
-
-        def get_usage(self, user_id) -> UserUsage:
-            row = db.fetchone("SELECT input, output FROM usage WHERE id=?", user_id)
-            return UserUsage(*row) if row else UserUsage()
-
-        def reset_usage(self, user_id):
-            db.execute("DELETE FROM usage WHERE id=?", user_id)
-
-        def all_users(self) -> dict[str, UserUsage]:
-            rows = db.fetchall("SELECT id, input, output FROM usage")
-            return {r[0]: UserUsage(r[1], r[2]) for r in rows}
 """
 
 import abc
@@ -61,6 +35,16 @@ class BaseStorage(abc.ABC):
 
         Returns a zeroed UserUsage if the user has no history.
         """
+
+    def add_and_get_usage(
+        self, user_id: str, input_tokens: int, output_tokens: int
+    ) -> UserUsage:
+        """
+        Increment token usage for a user and return updated cumulative totals.
+        Can be overridden by subclasses to combine atomic write-and-read.
+        """
+        self.add_usage(user_id, input_tokens, output_tokens)
+        return self.get_usage(user_id)
 
     @abc.abstractmethod
     def reset_usage(self, user_id: str) -> None:

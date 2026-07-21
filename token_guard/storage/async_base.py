@@ -36,6 +36,16 @@ class AsyncBaseStorage(abc.ABC):
         Returns a zeroed UserUsage if the user has no history.
         """
 
+    async def add_and_get_usage(
+        self, user_id: str, input_tokens: int, output_tokens: int
+    ) -> UserUsage:
+        """
+        Increment token usage for a user and return updated cumulative totals.
+        Can be overridden by subclasses to combine atomic write-and-read.
+        """
+        await self.add_usage(user_id, input_tokens, output_tokens)
+        return await self.get_usage(user_id)
+
     @abc.abstractmethod
     async def reset_usage(self, user_id: str) -> None:
         """Delete all usage data for a user."""

@@ -388,3 +388,28 @@ class TestTokenGuardWithFactory:
             assert result.provider == "direct"
             assert result.total_tokens == 57
             assert guard.get_usage("alice").total_tokens == 57
+
+
+class TestStorageEnhancements:
+    def test_add_and_get_usage_combines_operations(self):
+        store = InMemoryStorage()
+        usage = store.add_and_get_usage("user1", 100, 50)
+        assert usage.input_tokens == 100
+        assert usage.output_tokens == 50
+        assert usage.total_tokens == 150
+
+    def test_postgres_table_name_validation(self):
+        from token_guard import PostgreSQLStorage
+        with pytest.raises(ValueError, match="Invalid table_name"):
+            PostgreSQLStorage(table_name="invalid; DROP TABLE users;--", auto_create=False)
+
+    def test_exceptions_hierarchy(self):
+        from token_guard import (
+            TokenGuardError, ConfigurationError, PolicyError, StorageError, RateLimitExceededError
+        )
+        err = RateLimitExceededError("Limit hit", user_id="u1", limit=100, used=150)
+        assert isinstance(err, PolicyError)
+        assert isinstance(err, TokenGuardError)
+        assert err.user_id == "u1"
+        assert err.limit == 100
+        assert err.used == 150

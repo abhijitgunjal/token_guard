@@ -10,6 +10,13 @@ Pluggable policy engine    : FixedWindow, SlidingWindow, TokenBucket, LeakyBucke
 
 from token_guard.main import TokenGuard, TrackResult
 from token_guard.async_main import AsyncTokenGuard
+from token_guard.exceptions import (
+    TokenGuardError,
+    ConfigurationError,
+    PolicyError,
+    StorageError,
+    RateLimitExceededError,
+)
 
 # Storage
 from token_guard.storage import (
@@ -101,6 +108,7 @@ def __getattr__(name: str):
 __all__ = [
     "TokenGuard", "TrackResult",
     "AsyncTokenGuard",
+    "TokenGuardError", "ConfigurationError", "PolicyError", "StorageError", "RateLimitExceededError",
     "UserUsage", "BaseStorage", "InMemoryStorage",
     "RedisStorage", "SQLiteStorage",
     "PostgreSQLStorage", "AsyncPostgreSQLStorage",

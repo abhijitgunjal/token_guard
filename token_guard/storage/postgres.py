@@ -10,7 +10,10 @@ Requires:
 """
 
 from __future__ import annotations
+import asyncio
 import logging
+import re
+import threading
 from typing import Any, Dict, Optional
 
 from token_guard.storage.async_base import AsyncBaseStorage
@@ -20,11 +23,20 @@ from token_guard.storage.models import UserUsage
 logger = logging.getLogger(__name__)
 
 
+def _validate_table_name(table_name: str) -> None:
+    if not re.match(r"^[a-zA-Z0-9_]+$", table_name):
+        raise ValueError(
+            f"Invalid table_name '{table_name}'. "
+            f"Table names must contain only alphanumeric characters and underscores."
+        )
+
+
 class PostgreSQLStorage(BaseStorage):
     """
     Synchronous PostgreSQL storage backend.
 
     Uses `psycopg` (v3) to persist per-user token usage with atomic SQL UPSERTs.
+    Thread-safe via thread lock synchronization.
     """
 
     def __init__(
@@ -33,10 +45,13 @@ class PostgreSQLStorage(BaseStorage):
         table_name: str = "token_guard_usage",
         connection: Optional[Any] = None,
         auto_create: bool = True,
+        **kwargs: Any,
     ) -> None:
+        _validate_table_name(table_name)
         self.table_name = table_name
         self._dsn = connection_string
         self._conn = connection
+        self._lock = threading.Lock()
 
         if self._conn is None and self._dsn is None:
             self._dsn = "postgresql://localhost:5432/token_guard"
@@ -67,22 +82,22 @@ class PostgreSQLStorage(BaseStorage):
 
     def _create_table_if_not_exists(self) -> None:
         try:
-            conn = self._get_connection()
-            query = f"""
-            CREATE TABLE IF NOT EXISTS {self.table_name} (
-                user_id VARCHAR(255) PRIMARY KEY,
-                input_tokens BIGINT NOT NULL DEFAULT 0,
-                output_tokens BIGINT NOT NULL DEFAULT 0,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-            """
-            with conn.cursor() as cur:
-                cur.execute(query)
+            with self._lock:
+                conn = self._get_connection()
+                query = f"""
+                CREATE TABLE IF NOT EXISTS {self.table_name} (
+                    user_id VARCHAR(255) PRIMARY KEY,
+                    input_tokens BIGINT NOT NULL DEFAULT 0,
+                    output_tokens BIGINT NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+                with conn.cursor() as cur:
+                    cur.execute(query)
         except Exception as exc:
             logger.warning("Failed to verify/create PostgreSQL table '%s': %s", self.table_name, exc)
 
     def add_usage(self, user_id: str, input_tokens: int, output_tokens: int) -> None:
-        conn = self._get_connection()
         query = f"""
         INSERT INTO {self.table_name} (user_id, input_tokens, output_tokens, updated_at)
         VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
@@ -91,42 +106,48 @@ class PostgreSQLStorage(BaseStorage):
             output_tokens = {self.table_name}.output_tokens + EXCLUDED.output_tokens,
             updated_at = CURRENT_TIMESTAMP;
         """
-        with conn.cursor() as cur:
-            cur.execute(query, (user_id, input_tokens, output_tokens))
+        with self._lock:
+            conn = self._get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (user_id, input_tokens, output_tokens))
 
     def get_usage(self, user_id: str) -> UserUsage:
-        conn = self._get_connection()
         query = f"SELECT input_tokens, output_tokens FROM {self.table_name} WHERE user_id = %s;"
-        with conn.cursor() as cur:
-            cur.execute(query, (user_id,))
-            row = cur.fetchone()
-            if not row:
-                return UserUsage()
-            return UserUsage(input_tokens=int(row[0]), output_tokens=int(row[1]))
+        with self._lock:
+            conn = self._get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (user_id,))
+                row = cur.fetchone()
+                if not row:
+                    return UserUsage()
+                return UserUsage(input_tokens=int(row[0]), output_tokens=int(row[1]))
 
     def reset_usage(self, user_id: str) -> None:
-        conn = self._get_connection()
         query = f"DELETE FROM {self.table_name} WHERE user_id = %s;"
-        with conn.cursor() as cur:
-            cur.execute(query, (user_id,))
+        with self._lock:
+            conn = self._get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (user_id,))
 
     def all_users(self) -> dict[str, UserUsage]:
-        conn = self._get_connection()
         query = f"SELECT user_id, input_tokens, output_tokens FROM {self.table_name};"
         res: dict[str, UserUsage] = {}
-        with conn.cursor() as cur:
-            cur.execute(query)
-            rows = cur.fetchall()
-            for r in rows:
-                res[r[0]] = UserUsage(input_tokens=int(r[1]), output_tokens=int(r[2]))
+        with self._lock:
+            conn = self._get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query)
+                rows = cur.fetchall()
+                for r in rows:
+                    res[r[0]] = UserUsage(input_tokens=int(r[1]), output_tokens=int(r[2]))
         return res
 
     def ping(self) -> bool:
         try:
-            conn = self._get_connection()
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1;")
-                return cur.fetchone() is not None
+            with self._lock:
+                conn = self._get_connection()
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1;")
+                    return cur.fetchone() is not None
         except Exception as exc:
             logger.warning("PostgreSQLStorage ping failed: %s", exc)
             return False
@@ -145,11 +166,14 @@ class AsyncPostgreSQLStorage(AsyncBaseStorage):
         table_name: str = "token_guard_usage",
         pool: Optional[Any] = None,
         auto_create: bool = True,
+        **kwargs: Any,
     ) -> None:
+        _validate_table_name(table_name)
         self.table_name = table_name
         self._dsn = connection_string
         self._pool = pool
         self._auto_create = auto_create
+        self._init_lock = asyncio.Lock()
 
         if self._pool is None and self._dsn is None:
             self._dsn = "postgresql://localhost:5432/token_guard"
@@ -163,19 +187,23 @@ class AsyncPostgreSQLStorage(AsyncBaseStorage):
         if self._pool is not None:
             return self._pool
 
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise ImportError(
-                "Install asyncpg to use AsyncPostgreSQLStorage:\n"
-                "  pip install asyncpg\n"
-                "  or: pip install 'llm-token-guard[postgres]'"
-            ) from exc
+        async with self._init_lock:
+            if self._pool is not None:
+                return self._pool
 
-        self._pool = await asyncpg.create_pool(dsn=self._dsn)
-        if self._auto_create:
-            await self._create_table_if_not_exists()
-        return self._pool
+            try:
+                import asyncpg
+            except ImportError as exc:
+                raise ImportError(
+                    "Install asyncpg to use AsyncPostgreSQLStorage:\n"
+                    "  pip install asyncpg\n"
+                    "  or: pip install 'llm-token-guard[postgres]'"
+                ) from exc
+
+            self._pool = await asyncpg.create_pool(dsn=self._dsn)
+            if self._auto_create:
+                await self._create_table_if_not_exists()
+            return self._pool
 
     async def _create_table_if_not_exists(self) -> None:
         try:

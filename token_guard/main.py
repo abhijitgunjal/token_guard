@@ -102,8 +102,7 @@ class TokenGuard:
             utilization = self._limiter.utilization(cumulative) if self._limiter else 1.0
             self._alert.trigger(user_id, cumulative, self.max_tokens)
         else:
-            self._storage.add_usage(user_id, input_tokens, output_tokens)
-            cumulative = self._storage.get_usage(user_id)
+            cumulative = self._storage.add_and_get_usage(user_id, input_tokens, output_tokens)
             limiter_exceeded = self._limiter.check(cumulative) if self._limiter else False
             utilization = self._limiter.utilization(cumulative) if self._limiter else 0.0
             exceeded = limiter_exceeded

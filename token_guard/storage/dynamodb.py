@@ -170,5 +170,9 @@ class AsyncDynamoDBStorage(AsyncBaseStorage):
         return await loop.run_in_executor(None, self._sync.all_users)
 
     async def ping(self) -> bool:
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self._sync.ping)
+        try:
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, self._sync.ping)
+        except Exception as exc:
+            logger.warning("AsyncDynamoDBStorage ping failed: %s", exc)
+            return False

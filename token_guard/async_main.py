@@ -5,6 +5,7 @@ AsyncTokenGuard — the single public entry point for async LLM tracking.
 """
 
 from __future__ import annotations
+import asyncio
 from typing import List, Optional, Union
 
 from token_guard.alert import BaseAlertHandler
@@ -87,8 +88,7 @@ class AsyncTokenGuard:
             utilization = self._limiter.utilization(cumulative) if self._limiter else 1.0
             await self._alert.trigger(user_id, cumulative, self.max_tokens)
         else:
-            await self._storage.add_usage(user_id, input_tokens, output_tokens)
-            cumulative = await self._storage.get_usage(user_id)
+            cumulative = await self._storage.add_and_get_usage(user_id, input_tokens, output_tokens)
             limiter_exceeded = self._limiter.check(cumulative) if self._limiter else False
             utilization = self._limiter.utilization(cumulative) if self._limiter else 0.0
             exceeded = limiter_exceeded
@@ -133,8 +133,8 @@ class AsyncTokenGuard:
         output_text = output_text or ""
 
         counter = self._get_counter()
-        input_tokens = counter.count(input_text)
-        output_tokens = counter.count(output_text)
+        input_tokens = await asyncio.to_thread(counter.count, input_text)
+        output_tokens = await asyncio.to_thread(counter.count, output_text)
 
         return await self._record_and_check(user_id, input_tokens, output_tokens, counter.provider)
 
