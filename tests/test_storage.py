@@ -63,7 +63,7 @@ class TestStorageFactoryCreate:
 
     def test_unknown_backend_raises(self):
         with pytest.raises(ValueError, match="Unknown storage backend"):
-            StorageFactory.create("postgres")
+            StorageFactory.create("nonexistent_db")
 
     def test_list_backends(self):
         backends = StorageFactory.list_backends()

@@ -14,26 +14,17 @@ Usage::
     store = StorageFactory.create("memory")
     store = StorageFactory.create("sqlite")
     store = StorageFactory.create("redis")
+    store = StorageFactory.create("postgres", connection_string="postgresql://...")
+    store = StorageFactory.create("dynamodb", table_name="token_guard_usage")
 
-    # With options
-    store = StorageFactory.create("redis", host="redis.myapp.com", ttl=86400)
-    store = StorageFactory.create("sqlite", path="token_usage.db")
-
-    # From environment variable  (STORAGE=redis or STORAGE=memory)
+    # From environment variable (TOKEN_GUARD_STORAGE=postgres)
     store = StorageFactory.from_env()
 
-    # From a config dict (e.g. loaded from config.yaml / settings.py)
+    # From a config dict
     store = StorageFactory.from_config({
-        "backend": "redis",
-        "host": "redis.myapp.com",
-        "port": 6379,
-        "password": "secret",
-        "ttl": 86400,
-        "key_prefix": "myapp:tokens",
+        "backend": "postgres",
+        "connection_string": "postgresql://user:pass@localhost:5432/mydb",
     })
-
-    # Register a custom backend
-    StorageFactory.register("dynamodb", lambda **kw: MyDynamoStorage(**kw))
 """
 
 from __future__ import annotations
@@ -51,54 +42,49 @@ def _register_defaults() -> None:
     from token_guard.storage.memory import InMemoryStorage
     from token_guard.storage.redis import RedisStorage
     from token_guard.storage.sqlite import SQLiteStorage
+    from token_guard.storage.postgres import PostgreSQLStorage, AsyncPostgreSQLStorage
+    from token_guard.storage.dynamodb import DynamoDBStorage, AsyncDynamoDBStorage
 
     from token_guard.storage.async_memory import AsyncInMemoryStorage
     from token_guard.storage.async_redis import AsyncRedisStorage
     from token_guard.storage.async_sqlite import AsyncSQLiteStorage
 
     _REGISTRY.update({
-        "memory":         lambda **kw: InMemoryStorage(),
-        "inmemory":       lambda **kw: InMemoryStorage(),   # alias
-        "redis":          lambda **kw: RedisStorage(**kw),
-        "sqlite":         lambda **kw: SQLiteStorage(**kw),
-        "memory_async":   lambda **kw: AsyncInMemoryStorage(),
-        "inmemory_async": lambda **kw: AsyncInMemoryStorage(),
-        "async_memory":   lambda **kw: AsyncInMemoryStorage(),
-        "redis_async":    lambda **kw: AsyncRedisStorage(**kw),
-        "async_redis":    lambda **kw: AsyncRedisStorage(**kw),
-        "sqlite_async":   lambda **kw: AsyncSQLiteStorage(**kw),
-        "async_sqlite":   lambda **kw: AsyncSQLiteStorage(**kw),
+        "memory":           lambda **kw: InMemoryStorage(),
+        "inmemory":         lambda **kw: InMemoryStorage(),
+        "redis":            lambda **kw: RedisStorage(**kw),
+        "sqlite":           lambda **kw: SQLiteStorage(**kw),
+        "postgres":         lambda **kw: PostgreSQLStorage(**kw),
+        "postgresql":       lambda **kw: PostgreSQLStorage(**kw),
+        "dynamodb":         lambda **kw: DynamoDBStorage(**kw),
+        "dynamo":           lambda **kw: DynamoDBStorage(**kw),
+        "memory_async":     lambda **kw: AsyncInMemoryStorage(),
+        "inmemory_async":   lambda **kw: AsyncInMemoryStorage(),
+        "async_memory":     lambda **kw: AsyncInMemoryStorage(),
+        "redis_async":      lambda **kw: AsyncRedisStorage(**kw),
+        "async_redis":      lambda **kw: AsyncRedisStorage(**kw),
+        "sqlite_async":     lambda **kw: AsyncSQLiteStorage(**kw),
+        "async_sqlite":     lambda **kw: AsyncSQLiteStorage(**kw),
+        "postgres_async":   lambda **kw: AsyncPostgreSQLStorage(**kw),
+        "async_postgres":   lambda **kw: AsyncPostgreSQLStorage(**kw),
+        "postgresql_async": lambda **kw: AsyncPostgreSQLStorage(**kw),
+        "async_postgresql": lambda **kw: AsyncPostgreSQLStorage(**kw),
+        "dynamodb_async":   lambda **kw: AsyncDynamoDBStorage(**kw),
+        "async_dynamodb":   lambda **kw: AsyncDynamoDBStorage(**kw),
+        "dynamo_async":     lambda **kw: AsyncDynamoDBStorage(**kw),
+        "async_dynamo":     lambda **kw: AsyncDynamoDBStorage(**kw),
     })
 
 
 class StorageFactory:
     """
     Factory for creating storage backends by name or config dict.
-
-    Supports:
-        - ``"memory"``  → InMemoryStorage  (default, zero deps)
-        - ``"redis"``   → RedisStorage     (requires pip install redis)
-        - ``"sqlite"``  → SQLiteStorage    (zero deps, file-based)
-        - ``"memory_async"`` → AsyncInMemoryStorage
-        - ``"redis_async"``  → AsyncRedisStorage
-        - ``"sqlite_async"`` → AsyncSQLiteStorage
-        - any custom backend registered via ``StorageFactory.register()``
     """
 
     @classmethod
     def create(cls, backend: str = "memory", **kwargs: Any) -> BaseStorage | AsyncBaseStorage:
         """
         Create a storage backend by name.
-
-        Args:
-            backend:  Backend name — ``"memory"``, ``"redis"``, ``"sqlite"``, etc.
-            **kwargs: Options passed directly to the backend constructor.
-
-        Returns:
-            A configured BaseStorage or AsyncBaseStorage instance.
-
-        Raises:
-            ValueError: If the backend name is not registered.
         """
         if not _REGISTRY:
             _register_defaults()
@@ -114,15 +100,37 @@ class StorageFactory:
         return _REGISTRY[key](**kwargs)
 
     @classmethod
+    def register(
+        cls,
+        name: str,
+        factory: Callable[..., BaseStorage | AsyncBaseStorage],
+    ) -> None:
+        """Register a custom storage backend factory."""
+        if not _REGISTRY:
+            _register_defaults()
+        _REGISTRY[name.lower().replace("-", "_")] = factory
+
+    @classmethod
+    def list_backends(cls) -> list[str]:
+        """Return a sorted list of registered backend names."""
+        if not _REGISTRY:
+            _register_defaults()
+        return sorted(_REGISTRY.keys())
+
+    @classmethod
     def from_url(cls, url: str, **kwargs: Any) -> BaseStorage | AsyncBaseStorage:
         """
-        Create a RedisStorage or AsyncRedisStorage directly from a Redis URL.
-
-        Args:
-            url:      Redis URL.
-            **kwargs: Extra options (``key_prefix``, ``ttl``, etc.)
+        Create a Redis or PostgreSQL storage driver directly from a URL.
         """
         async_mode = kwargs.pop("async_mode", False)
+        lowered = url.lower()
+        if lowered.startswith("postgresql://") or lowered.startswith("postgres://"):
+            if async_mode:
+                from token_guard.storage.postgres import AsyncPostgreSQLStorage
+                return AsyncPostgreSQLStorage.from_url(url, **kwargs)
+            from token_guard.storage.postgres import PostgreSQLStorage
+            return PostgreSQLStorage.from_url(url, **kwargs)
+
         if async_mode:
             from token_guard.storage.async_redis import AsyncRedisStorage
             return AsyncRedisStorage.from_url(url, **kwargs)
@@ -135,6 +143,7 @@ class StorageFactory:
         cls,
         env_var: str = "TOKEN_GUARD_STORAGE",
         redis_url_var: str = "REDIS_URL",
+        database_url_var: str = "DATABASE_URL",
         **kwargs: Any,
     ) -> BaseStorage | AsyncBaseStorage:
         """
@@ -142,7 +151,6 @@ class StorageFactory:
         """
         backend = os.getenv(env_var, "memory").lower().strip()
 
-        # Pull extra config from env vars if not already in kwargs
         if "ttl" not in kwargs:
             raw_ttl = os.getenv("TOKEN_GUARD_TTL")
             if raw_ttl:
@@ -153,49 +161,35 @@ class StorageFactory:
             if prefix:
                 kwargs["key_prefix"] = prefix
 
-        # If backend is redis and REDIS_URL is set, use from_url path
-        is_async = "async" in backend
         if backend in ("redis", "redis_async", "async_redis"):
             redis_url = os.getenv(redis_url_var)
             if redis_url:
-                return cls.from_url(redis_url, async_mode=is_async, **kwargs)
+                kwargs["async_mode"] = "async" in backend
+                return cls.from_url(redis_url, **kwargs)
+
+        if backend in ("postgres", "postgresql", "postgres_async", "postgresql_async", "async_postgres", "async_postgresql"):
+            db_url = os.getenv(database_url_var)
+            if db_url:
+                kwargs["async_mode"] = "async" in backend
+                return cls.from_url(db_url, **kwargs)
+
+        if backend in ("dynamodb", "dynamo", "dynamodb_async", "dynamo_async", "async_dynamodb", "async_dynamo"):
+            if "table_name" not in kwargs and os.getenv("TOKEN_GUARD_TABLE"):
+                kwargs["table_name"] = os.getenv("TOKEN_GUARD_TABLE")
+            if "region_name" not in kwargs and os.getenv("AWS_REGION"):
+                kwargs["region_name"] = os.getenv("AWS_REGION")
 
         return cls.create(backend, **kwargs)
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> BaseStorage | AsyncBaseStorage:
         """
-        Create a storage backend from a config dictionary.
+        Create a storage backend from a configuration dictionary.
         """
-        config = dict(config)   # don't mutate caller's dict
-        backend = config.pop("backend", "memory")
-
-        # Special case: redis with a URL key
-        is_async = "async" in backend
-        if backend in ("redis", "redis_async", "async_redis") and "url" in config:
-            url = config.pop("url")
-            return cls.from_url(url, async_mode=is_async, **config)
-
-        return cls.create(backend, **config)
-
-    @classmethod
-    def register(
-        cls,
-        name: str,
-        factory_fn: Callable[..., BaseStorage | AsyncBaseStorage],
-    ) -> None:
-        """
-        Register a custom storage backend.
-        """
-        if not _REGISTRY:
-            _register_defaults()
-        _REGISTRY[name.lower()] = factory_fn
-
-    @classmethod
-    def list_backends(cls) -> list[str]:
-        """Return sorted list of all registered backend names."""
-        if not _REGISTRY:
-            _register_defaults()
-        return sorted(_REGISTRY)
-
-
+        cfg = dict(config)
+        backend = cfg.pop("backend", "memory").lower()
+        if "url" in cfg:
+            url = cfg.pop("url")
+            cfg["async_mode"] = "async" in backend
+            return cls.from_url(url, **cfg)
+        return cls.create(backend, **cfg)

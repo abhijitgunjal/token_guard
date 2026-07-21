@@ -7,6 +7,15 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.6.0] - 2026-07-21
+
+### Added
+- **PostgreSQL Storage Drivers**: `PostgreSQLStorage` (sync via `psycopg`) and `AsyncPostgreSQLStorage` (async via `asyncpg`) with atomic SQL `UPSERT` statements.
+- **AWS DynamoDB Storage Drivers**: `DynamoDBStorage` (sync via `boto3`) and `AsyncDynamoDBStorage` (async via `aioboto3` or executor) with atomic `ADD` update expressions.
+- `StorageFactory` support for `"postgres"`, `"postgresql"`, `"dynamodb"`, and `"dynamo"` string keys and environment variable resolution (`TOKEN_GUARD_STORAGE=postgres`, `TOKEN_GUARD_STORAGE=dynamodb`).
+- Full Policy Engine compatibility with zero race conditions under high concurrency.
+- Storage documentation guides (`docs/storage/postgresql.md` and `docs/storage/dynamodb.md`).
+
 ## [0.5.0] - 2026-07-20
 
 ### Added

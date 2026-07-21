@@ -2,7 +2,7 @@
 demo_all_features.py
 --------------------
 Comprehensive local demonstration script testing ALL TokenGuard features, methods,
-storage backends (InMemory, SQLite, Redis), policies, and async/sync APIs.
+storage backends (InMemory, SQLite, Redis, PostgreSQL, DynamoDB), policies, and async/sync APIs.
 
 To run:
     python examples/demo_all_features.py
@@ -23,9 +23,13 @@ from token_guard import (
     InMemoryStorage,
     SQLiteStorage,
     RedisStorage,
+    PostgreSQLStorage,
+    DynamoDBStorage,
     AsyncInMemoryStorage,
     AsyncSQLiteStorage,
     AsyncRedisStorage,
+    AsyncPostgreSQLStorage,
+    AsyncDynamoDBStorage,
     StorageFactory,
     UserUsage,
     
@@ -150,10 +154,10 @@ def run_sync_tests():
 
 
 # =====================================================================
-# 4. Storage Backends Testing (Memory, SQLite, Redis)
+# 4. Storage Backends Testing (Memory, SQLite, Redis, PostgreSQL, DynamoDB)
 # =====================================================================
 def run_storage_tests():
-    print_section("3. STORAGE BACKENDS (InMemory, SQLite, Redis)")
+    print_section("3. STORAGE BACKENDS (InMemory, SQLite, Redis, PostgreSQL, DynamoDB)")
 
     # A. SQLite Storage
     db_file = "demo_test.db"
@@ -165,7 +169,7 @@ def run_storage_tests():
     res_sql = guard_sqlite.track_usage("david", input_tokens=400, output_tokens=100)
     print_result("SQLite Storage", res_sql)
 
-    # B. Redis Storage (attempts connection, handles offline state)
+    # B. Redis Storage
     print("\n  Testing Redis Storage...")
     try:
         redis_store = StorageFactory.create("redis", host="localhost", port=6379, ttl=3600)
@@ -177,9 +181,24 @@ def run_storage_tests():
             print("  [WARNING] Redis server reachable check returned False.")
     except Exception as e:
         print(f"  [INFO] Redis not running locally on port 6379 ({type(e).__name__}: {e})")
-        print("  -> Follow Docker Desktop instructions below to run Redis.")
 
-    # C. StorageFactory via Environment Variables & Config Dicts
+    # C. PostgreSQL Storage (Factory Check)
+    print("\n  Testing PostgreSQL Storage (Factory Check)...")
+    try:
+        pg_store = StorageFactory.create("postgres", connection_string="postgresql://localhost:5432/token_guard", auto_create=False)
+        print(f"  PostgreSQLStorage instantiated via StorageFactory: class={type(pg_store).__name__}")
+    except Exception as e:
+        print(f"  [INFO] PostgreSQL driver setup info: {e}")
+
+    # D. DynamoDB Storage (Factory Check)
+    print("\n  Testing DynamoDB Storage (Factory Check)...")
+    try:
+        dynamo_store = StorageFactory.create("dynamodb", table_name="token_guard_usage")
+        print(f"  DynamoDBStorage instantiated via StorageFactory: class={type(dynamo_store).__name__}")
+    except Exception as e:
+        print(f"  [INFO] DynamoDB driver setup info: {e}")
+
+    # E. StorageFactory via Environment Variables & Config Dicts
     print("\n  Testing StorageFactory configurations...")
     config_storage = StorageFactory.from_config({"backend": "sqlite", "path": ":memory:"})
     guard_cfg = TokenGuard(max_tokens=1000, storage=config_storage)
@@ -194,7 +213,7 @@ def run_storage_tests():
 
 
 # =====================================================================
-# 5. Policy Engine Testing (v0.5.0)
+# 5. Policy Engine Testing (v0.5.0 Algorithms)
 # =====================================================================
 def run_policy_tests():
     print_section("4. POLICY ENGINE (v0.5.0 Algorithms)")
@@ -275,7 +294,7 @@ async def run_async_tests():
     res_asw2 = await async_policy_guard.track_usage("async_p_user", 100, 0)
     print(f"  Async Sliding Window (total 250 > 200 limit): allowed={res_asw2.policy_result.allowed}")
 
-    # D. Async Redis Storage (attempts connection)
+    # D. Async Redis Storage
     print("\n  Testing Async Redis Storage...")
     try:
         async_redis_store = AsyncRedisStorage(host="localhost", port=6379, ttl=3600)

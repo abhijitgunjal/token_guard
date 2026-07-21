@@ -4,7 +4,7 @@ token_guard
 Track LLM token usage, enforce limits, trigger alerts, and evaluate policies.
 
 Pluggable counter backends : OpenAI, Groq, OpenRouter, AWS Bedrock, custom
-Pluggable storage backends : Memory, Redis, SQLite, custom
+Pluggable storage backends : Memory, Redis, SQLite, PostgreSQL, DynamoDB, custom
 Pluggable policy engine    : FixedWindow, SlidingWindow, TokenBucket, LeakyBucket, Cost, Quota, Role, custom
 """
 
@@ -18,6 +18,10 @@ from token_guard.storage import (
     InMemoryStorage,
     RedisStorage,
     SQLiteStorage,
+    PostgreSQLStorage,
+    AsyncPostgreSQLStorage,
+    DynamoDBStorage,
+    AsyncDynamoDBStorage,
     StorageFactory,
     AsyncBaseStorage,
     AsyncInMemoryStorage,
@@ -98,7 +102,10 @@ __all__ = [
     "TokenGuard", "TrackResult",
     "AsyncTokenGuard",
     "UserUsage", "BaseStorage", "InMemoryStorage",
-    "RedisStorage", "SQLiteStorage", "StorageFactory",
+    "RedisStorage", "SQLiteStorage",
+    "PostgreSQLStorage", "AsyncPostgreSQLStorage",
+    "DynamoDBStorage", "AsyncDynamoDBStorage",
+    "StorageFactory",
     "AsyncBaseStorage", "AsyncInMemoryStorage", "AsyncRedisStorage", "AsyncSQLiteStorage",
     "AlertManager", "BaseAlertHandler", "ConsoleAlertHandler",
     "AsyncAlertManager", "AsyncBaseAlertHandler",
@@ -117,4 +124,4 @@ __all__ = [
     "PolicyPipeline", "AsyncPolicyPipeline",
 ]
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
