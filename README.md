@@ -14,87 +14,194 @@ Production-ready token tracking, policy evaluation engines, budget limits, and a
 ---
 
 <a id="quick-start"></a>
-## ⚡ Quick Start
+## Quick Start
+
+### 1. Direct Token Tracking & Policy Enforcement
+
+Track exact token usage reported by LLM API responses and enforce rate-limiting policies:
 
 ```python
-# Sync exact tracking with a Sliding Window Policy
 from token_guard import TokenGuard, SlidingWindowPolicy
 
+# Configure a Sliding Window Policy: max 50,000 tokens per hour
 policy = SlidingWindowPolicy(limit=50_000, window=3600)
 guard = TokenGuard(policy=policy)
-result = guard.track_usage("alice", input_tokens=42, output_tokens=15)
 
-print(result.total_tokens)                  # 57
-print(result.limit_exceeded)                # False
-print(result.cumulative_usage.total_tokens) # 57
+# Record exact token usage for a user request
+result = guard.track_usage("user_123", input_tokens=420, output_tokens=150)
 
-# Async exact tracking with Token Bucket Policy
+print(result.total_tokens)                    # 570
+print(result.limit_exceeded)                  # False
+print(result.cumulative_usage.total_tokens)   # 570
+```
+
+### 2. Async Tracking for Web Frameworks (FastAPI / Starlette)
+
+Use non-blocking async execution in web servers:
+
+```python
+import asyncio
 from token_guard import AsyncTokenGuard, AsyncTokenBucketPolicy
 
-async_policy = AsyncTokenBucketPolicy(capacity=10_000, refill_rate=100.0)
-async_guard = AsyncTokenGuard(policy=async_policy)
-result = await async_guard.track_usage("bob", input_tokens=42, output_tokens=15)
+async def main():
+    policy = AsyncTokenBucketPolicy(capacity=10_000, refill_rate=100.0)
+    guard = AsyncTokenGuard(policy=policy)
+    
+    result = await guard.track_usage("user_456", input_tokens=80, output_tokens=20)
+    print(result.total_tokens)   # 100
+    print(result.limit_exceeded) # False
 
-print(result.total_tokens)                  # 57
-print(result.limit_exceeded)                # False
+asyncio.run(main())
 ```
 
 ---
 
-<a id="table-of-contents"></a>
-## Table of Contents
+<a id="why-token-guard"></a>
+## Why TokenGuard?
 
-- [Quick Start](#quick-start)
-- [Why TokenGuard?](#why-token-guard)
-- [Architecture](#architecture)
-- [Features](#features)
-- [Installation](#installation)
-- [Documentation Guides](#documentation-guides)
-  - [Policy Engine](docs/policies.md)
-  - [Token Counting & Providers](docs/providers.md)
-  - [Storage Backends](docs/storage.md)
-  - [PostgreSQL Storage Guide](docs/storage/postgresql.md)
-  - [AWS DynamoDB Storage Guide](docs/storage/dynamodb.md)
-  - [FastAPI Integration](docs/fastapi.md)
-  - [Async Support](docs/async.md)
-  - [Custom Backends](docs/custom-backends.md)
-- [Provider Compatibility](#provider-compatibility)
-- [Project Structure](#project-structure)
-- [Examples](#examples)
-- [Running Tests](#running-tests)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
+LLM API calls are billed per token (inputs + outputs). Uncontrolled application requests can quickly trigger unexpected cost spikes, upstream rate limit errors, or user abuse.
+
+**TokenGuard** operates as a lightweight, thread-safe, and event-loop-safe middleware layer:
+
+* **Flexible Policy Engine**: Enforce Sliding Window, Token Bucket, Fixed Window, Leaky Bucket, Cost ($/day), Quota, or Role-based rate limits.
+* **Cost & Budget Protection**: Enforce usage caps per user, model, tier, or session.
+* **Unified Multi-Provider Support**: Track token metrics across OpenAI, Groq, OpenRouter, and AWS Bedrock under a single unified API.
+* **Pluggable Enterprise Storage**: Keep state in-memory during development or swap to Redis, SQLite, PostgreSQL, or AWS DynamoDB in production with one config change.
+* **Real-time Alerts**: Dispatch warnings and webhook notifications (Slack, console, webhooks) the moment limit thresholds are crossed.
 
 ---
 
-<a id="why-token-guard"></a>
-## 🧠 Why TokenGuard?
+<a id="features"></a>
+## Features
 
-LLM calls are billed per token (inputs + outputs). Unchecked application consumption can quickly lead to unexpected cost spikes, upstream API rate-limiting blockages, or abuse.
+| Feature | Description |
+|---|---|
+| **Policy Engine** | Enforce Sliding Window, Token Bucket, Fixed Window, Leaky Bucket, Cost, Quota, and Role-based policies |
+| **Multi-Provider Counting** | Exact tiktoken tokenizers (OpenAI, OpenRouter), HuggingFace (Groq), and AWS Bedrock APIs |
+| **Exact Tracking** | `track_usage()` records exact token metrics directly from LLM API payloads |
+| **Pluggable Storage** | Seamlessly swap backends (InMemory, Redis, SQLite, PostgreSQL, AWS DynamoDB) via config |
+| **Budget & Limit Control** | Track cumulative usage against configurable limits per `user_id` |
+| **Extensible Alerts** | Dispatch limit-exceeded warnings to Console, Slack, webhooks, or custom handlers |
+| **Auto-Detect Backend** | Automatically map models to tokenizers via `CounterFactory.auto()` |
+| **FastAPI & Async Ready** | Fully non-blocking async entry points (`AsyncTokenGuard`) and async database drivers |
+| **Robust Test Suite** | 219 offline unit and integration tests |
 
-**TokenGuard** acts as a lightweight, thread-safe, and event-loop-safe middleware layer. Use it to:
-*   **Evaluate Flexible Policies**: Enforce Sliding Window, Token Bucket, Fixed Window, Leaky Bucket, Cost, Quota, or Role-based policies.
-*   **Prevent Cost Spikes**: Set and enforce strict token usage budgets per user, model, or session.
-*   **Unify Tracking**: Track consumption across OpenAI, Groq, OpenRouter, and AWS Bedrock under a single API.
-*   **Flexible Storage**: Keep track in-memory (dev) or plug in Redis, SQLite, PostgreSQL, or DynamoDB (prod) with a single config change.
-*   **Proactive Alerts**: Fire warnings and webhook notifications (Slack, console) the instant thresholds are crossed.
+---
+
+<a id="installation"></a>
+## Installation
+
+```bash
+# Core package (includes OpenAI/tiktoken local counting, policies, and memory storage)
+pip install llm-token-guard
+
+# Install optional storage backends & provider extras:
+pip install "llm-token-guard[redis]"         # Redis storage support
+pip install "llm-token-guard[postgres]"      # PostgreSQL support (psycopg, asyncpg)
+pip install "llm-token-guard[dynamodb]"      # AWS DynamoDB support (boto3, aioboto3)
+pip install "llm-token-guard[sqlite-async]"  # Async SQLite (aiosqlite) support
+pip install "llm-token-guard[groq]"          # Groq HuggingFace tokenizers
+pip install "llm-token-guard[bedrock]"       # AWS Bedrock CountTokens API
+pip install "llm-token-guard[all]"           # All optional dependencies
+```
+
+---
+
+<a id="code-examples"></a>
+## Essential Usage Examples
+
+### 1. Combining Multiple Policies
+
+Combine rate limits, daily cost caps, and monthly quotas into a single `TokenGuard` instance:
+
+```python
+from token_guard import TokenGuard, SlidingWindowPolicy, CostPolicy, QuotaPolicy
+
+policies = [
+    SlidingWindowPolicy(limit=10_000, window=3600),     # Max 10k tokens / hour
+    CostPolicy(daily_limit_usd=5.0),                    # Max $5.00 cost / day
+    QuotaPolicy(monthly_tokens=500_000),                # Max 500k tokens / month
+]
+
+guard = TokenGuard(policies=policies)
+result = guard.track_usage("user_789", input_tokens=500, output_tokens=200)
+
+if result.limit_exceeded:
+    print(f"Request blocked: {result.policy_result.reason}")
+    print(f"Retry after: {result.policy_result.retry_after}s")
+```
+
+### 2. Configuring Production Storage Backends
+
+Initialize storage backends using `StorageFactory` or environment variables:
+
+```python
+from token_guard import TokenGuard, StorageFactory, SlidingWindowPolicy
+
+# Option A: Create storage from a DSN connection string (Postgres / Redis / SQLite)
+storage = StorageFactory.create("postgres", connection_string="postgresql://user:pass@localhost:5432/db")
+
+# Option B: Auto-create storage from environment variables (e.g. TOKEN_GUARD_STORAGE=redis)
+# storage = StorageFactory.from_env()
+
+guard = TokenGuard(
+    policy=SlidingWindowPolicy(limit=50_000, window=3600),
+    storage=storage,
+)
+```
+
+### 3. Text Token Counting & Auto Provider Detection
+
+Count tokens from text strings before executing LLM requests:
+
+```python
+from token_guard import TokenGuard, CounterFactory
+
+# Auto-detect token counter based on model name
+counter = CounterFactory.auto("meta-llama/llama-3-70b-instruct")
+guard = TokenGuard(counter=counter)
+
+# Track usage from prompt and response text
+result = guard.track(
+    user_id="user_123",
+    input_text="Explain quantum computing in simple terms.",
+    output_text="Quantum computing is a field of computing focused on quantum physics principles..."
+)
+
+print(f"Input Tokens: {result.input_tokens}")
+print(f"Output Tokens: {result.output_tokens}")
+```
+
+### 4. Setting Up Alert Handlers
+
+Trigger warning alerts when users breach limits:
+
+```python
+from token_guard import TokenGuard, BaseAlertHandler
+
+class SlackWebhookAlertHandler(BaseAlertHandler):
+    def alert(self, user_id: str, usage, max_tokens: int) -> None:
+        print(f"[ALERT] User {user_id} exceeded token limit! Usage: {usage.total_tokens}")
+
+guard = TokenGuard(
+    max_tokens=1_000,
+    alert_handlers=[SlackWebhookAlertHandler()]
+)
+```
 
 ---
 
 <a id="architecture"></a>
-## 🏗️ Architecture & Execution Flow
+## Architecture & Execution Pipeline
 
 TokenGuard follows a modular **Strategy Pattern** architecture, cleanly decoupling token counting, policy evaluation, storage persistence, and alert dispatching into independent layers:
 
-| Component | Responsibility | Backends / Implementations |
+| Component | Responsibility | Implementations |
 |---|---|---|
 | **Tokenizer Layer** | Computes input and output token counts | Tiktoken (OpenAI, OpenRouter), HuggingFace (Groq), Bedrock API, Direct Payload |
 | **Policy Engine** | Evaluates request rules before usage recording | Sliding Window, Token Bucket, Fixed Window, Leaky Bucket, Cost ($/day), Quota, Role |
 | **Storage Layer** | Persists cumulative token totals & state | InMemory, Redis, SQLite, PostgreSQL, AWS DynamoDB |
 | **Alert Manager** | Dispatches warning triggers when limits are hit | Console, Slack, Webhooks, Custom Handlers |
-
-### Request Pipeline Flow
 
 ```mermaid
 graph TD
@@ -129,87 +236,10 @@ graph TD
 
 ---
 
-<a id="features"></a>
-## ✨ Features
-
-| Feature | Detail |
-|---|---|
-| **Policy Engine** | Sliding Window, Token Bucket, Fixed Window, Leaky Bucket, Cost, Quota, Role |
-| **Multi-Provider Counting** | OpenAI (exact local), Groq, OpenRouter, AWS Bedrock |
-| **Exact Tracking** | `track_usage()` records exact token metrics directly from API payloads |
-| **Pluggable Storage** | Seamlessly swap backends (InMemory, Redis, SQLite, PostgreSQL, DynamoDB) with one config line |
-| **Budget Enforcement** | Track usage against configurable limits per `user_id` |
-| **Extensible Alerts** | Console, Slack, webhooks, or custom handlers |
-| **Auto-Detect Backend** | Auto-detect model tokens based on model name strings |
-| **FastAPI & Async Ready** | Full async entry points and async-native database integrations |
-| **Robust Test Suite** | 219 offline unit and integration tests |
-
----
-
-<a id="installation"></a>
-## 📦 Installation
-
-```bash
-# Core package (includes OpenAI/tiktoken local counting, policies, and memory storage)
-pip install llm-token-guard
-
-# Install optional backends & providers
-pip install "llm-token-guard[redis]"         # Redis storage support
-pip install "llm-token-guard[sqlite-async]"  # Async SQLite (aiosqlite) support
-pip install "llm-token-guard[postgres]"      # PostgreSQL support (psycopg, asyncpg)
-pip install "llm-token-guard[dynamodb]"      # AWS DynamoDB support (boto3, aioboto3)
-pip install "llm-token-guard[groq]"          # Groq HuggingFace tokenizers
-pip install "llm-token-guard[bedrock]"       # AWS Bedrock boto3 exact counts
-pip install "llm-token-guard[all]"           # All optional dependencies
-```
-
----
-
-<a id="documentation-guides"></a>
-## 📖 Documentation Guides
-
-Advanced configuration, setup patterns, and code integrations are organized into individual guides:
-
-### 1. [Policy Engine](docs/policies.md)
-*   **Sliding Window**, **Token Bucket**, **Fixed Window**, and **Leaky Bucket** policy configurations.
-*   **Cost Limits** ($/day), **Quota Caps** (tokens/day), and **Role-based** limit evaluation.
-*   Combining multiple policies in `TokenGuard` & `AsyncTokenGuard`.
-*   Extending custom policies via `BasePolicy` or `AsyncBasePolicy`.
-
-### 2. [Token Counting & Providers](docs/providers.md)
-*   **Tiktoken** exact token counts for OpenAI and OpenRouter.
-*   HuggingFace tokenizer integrations for **Groq** models.
-*   AWS API-driven exact counting for **AWS Bedrock**.
-*   Provider accuracy comparison table.
-
-### 3. [Storage Backends](docs/storage.md)
-*   Using default `InMemoryStorage`.
-*   Setting up connection pools, keys namespaces, and TTLs in `RedisStorage`.
-*   Configuring persistent file storage via `SQLiteStorage`.
-*   Setting up production SQL storage with **[PostgreSQL](docs/storage/postgresql.md)** (`PostgreSQLStorage` & `AsyncPostgreSQLStorage`).
-*   Setting up serverless AWS storage with **[DynamoDB](docs/storage/dynamodb.md)** (`DynamoDBStorage` & `AsyncDynamoDBStorage`).
-*   Initializing via **Environment Variables** or **Configuration Dictionaries**.
-
-### 4. [FastAPI Integration](docs/fastapi.md)
-*   Adding `AsyncTokenGuard` to standard web applications.
-*   Managing exact API counts inside async routes without blocking.
-*   Guide to API commands (`curl`) for tracking, checking, and resetting.
-
-### 5. [Async Support](docs/async.md)
-*   Writing non-blocking async codebases with `AsyncTokenGuard`.
-*   Selecting async storage backends (`AsyncInMemoryStorage`, `AsyncRedisStorage`, `AsyncSQLiteStorage`, `AsyncPostgreSQLStorage`, `AsyncDynamoDBStorage`).
-*   Configuring mixed sync/async alert triggers.
-
-### 6. [Custom Backends](docs/custom-backends.md)
-*   Subclassing `BaseTokenCounter` and registering with `CounterFactory`.
-*   Subclassing `BaseStorage` and registering with `StorageFactory` for databases.
-
----
-
 <a id="provider-compatibility"></a>
-## 📊 Provider Compatibility
+## Provider Compatibility
 
-| Provider | Accuracy | Counting Method | Async Compatible | API Dependency |
+| Provider | Accuracy | Counting Method | Async Compatible | Dependency |
 |---|---|---|---|---|
 | **OpenAI** | 100% (Exact) | Local `tiktoken` | Yes | None |
 | **Groq (Default)** | ~95% | Local `tiktoken cl100k` | Yes | None |
@@ -221,13 +251,29 @@ Advanced configuration, setup patterns, and code integrations are organized into
 
 ---
 
+<a id="documentation-guides"></a>
+## Documentation & Advanced Guides
+
+For detailed setup instructions, configuration options, and advanced integrations, refer to the documentation guides:
+
+* 📘 **[Policy Engine Guide](docs/policies.md)** — In-depth configurations for Sliding Window, Token Bucket, Cost, Quota, and Role-based policies.
+* 📘 **[Token Counting & Providers Guide](docs/providers.md)** — Tokenizer selection and accuracy comparisons for OpenAI, Groq, OpenRouter, and AWS Bedrock.
+* 📘 **[Storage Backends Guide](docs/storage.md)** — Production setup for Redis, SQLite, PostgreSQL, and AWS DynamoDB.
+  * 📘 **[PostgreSQL Setup Guide](docs/storage/postgresql.md)** — Sync (`psycopg`) & Async (`asyncpg`) PostgreSQL storage setup.
+  * 📘 **[AWS DynamoDB Setup Guide](docs/storage/dynamodb.md)** — Serverless AWS DynamoDB storage setup.
+* 📘 **[FastAPI Integration Guide](docs/fastapi.md)** — Adding `AsyncTokenGuard` middleware and non-blocking route tracking.
+* 📘 **[Async Support Guide](docs/async.md)** — Event loop integration and async storage drivers.
+* 📘 **[Custom Backends Guide](docs/custom-backends.md)** — Implementing custom counters, storage drivers, and policies.
+
+---
+
 <a id="project-structure"></a>
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 token_guard/
 ├── docs/                 # Detailed guides and reference docs
-│   └── storage/          # Storage specific guides (PostgreSQL, DynamoDB)
+│   └── storage/          # Storage-specific guides (PostgreSQL, DynamoDB)
 ├── token_guard/          # Core library source code
 │   ├── counters/         # Token counters (OpenAI, Groq, Bedrock, etc.)
 │   ├── engine/           # Policy evaluators and execution pipelines
@@ -241,17 +287,16 @@ token_guard/
 ---
 
 <a id="examples"></a>
-## 🚀 Examples
+## Runnable Examples
 
-Ready-to-run examples demonstrating different configuration patterns:
-*   **[All-Features Demo](examples/demo_all_features.py)**: Complete runnable test suite for all sync/async features, storage drivers, and policies.
-*   **[FastAPI Integration](example_fastapi.py)**: Async token limits and route handling.
-*   **[Multi-Provider Demo](examples/multi_provider.py)**: Basic usage mapping different counter and storage backends.
+* **[All-Features Demo](examples/demo_all_features.py)**: Runnable test suite demonstrating sync/async features, storage drivers, and policies.
+* **[FastAPI Integration Demo](example_fastapi.py)**: Web server integration with async token limits and route handling.
+* **[Multi-Provider Demo](examples/multi_provider.py)**: Mapping multiple counter and storage backends.
 
 ---
 
 <a id="running-tests"></a>
-## 🧪 Running Tests
+## Running Tests
 
 ```bash
 pip install -e ".[dev]"
@@ -267,7 +312,7 @@ pytest tests/test_groq_integration.py -v -s
 ---
 
 <a id="roadmap"></a>
-## 🗺️ Roadmap
+## Roadmap
 
 ### Completed Milestones
 - [x] **Multi-provider token counting** — OpenAI, Groq, OpenRouter, AWS Bedrock ✅
@@ -300,7 +345,7 @@ pytest tests/test_groq_integration.py -v -s
 ---
 
 <a id="contributing"></a>
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please follow these basic guidelines:
 1. Fork the repository and create a feature branch.
@@ -313,6 +358,6 @@ Contributions are welcome! Please follow these basic guidelines:
 ---
 
 <a id="license"></a>
-## 📄 License
+## License
 
 MIT ©Abhijit Gunjal — see [LICENSE](LICENSE) for details.
