@@ -5,7 +5,12 @@ All notable changes to llm-token-guard will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
----
+## [0.6.2] - 2026-07-23
+
+### Added & Improved
+- **Provider Integration Test Suites**: Added comprehensive, end-to-end integration test suites for **OpenAI** (`tests/test_openai_integration.py`), **OpenRouter** (`tests/test_openrouter_integration.py`), and **AWS Bedrock** (`tests/test_bedrock_integration.py`).
+- **Python 3.13 & 3.14 Compatibility**: Officially declared and validated support for Python 3.13 and Python 3.14 (`3.14-dev`). Updated PyPI classifiers and expanded the GitHub Actions CI testing matrix across Python 3.10–3.14.
+- **Developer Experience & README Overhaul**: Refactored `README.md` to adopt modern Python library styling (FastAPI, Pydantic, HTTPX), removed redundant TOC clutter, cleaned emoji headings into professional typography, and added essential usage code snippets directly to the main guide.
 
 ## [0.6.1] - 2026-07-21
 

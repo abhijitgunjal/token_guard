@@ -335,6 +335,7 @@ pytest tests/test_bedrock_integration.py -v -s
 - [x] **Policy Engine (v0.5.0)** — Sliding Window, Token Bucket, Fixed Window, Leaky Bucket, Cost, Quota, Role policies ✅
 - [x] **PostgreSQL & DynamoDB Drivers (v0.6.0)** — Built-in enterprise storage drivers ✅
 - [x] **Hardening & Performance (v0.6.1)** — Deadlock fixes, thread safety, memory eviction, double query optimization, custom exceptions ✅
+- [x] **Provider Integrations & Python 3.13/3.14 (v0.6.2)** — Integration tests for OpenAI/OpenRouter/Bedrock, Python 3.13 & 3.14 CI matrix, DX README refactor ✅
 
 ### Upcoming Enterprise Roadmap
 
