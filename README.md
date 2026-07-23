@@ -304,9 +304,18 @@ pip install -e ".[dev]"
 # Run all offline sync and async tests (no API keys required)
 pytest tests/ -v
 
-# Run integration tests (requires GROQ_API_KEY env var)
+# Run provider integration tests (requires respective provider API keys)
 export GROQ_API_KEY=gsk_...
 pytest tests/test_groq_integration.py -v -s
+
+export OPENAI_API_KEY=sk-...
+pytest tests/test_openai_integration.py -v -s
+
+export OPENROUTER_API_KEY=sk-or-v1-...
+pytest tests/test_openrouter_integration.py -v -s
+
+export AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=us-east-1
+pytest tests/test_bedrock_integration.py -v -s
 ```
 
 ---
